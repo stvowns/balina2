@@ -75,14 +75,7 @@ git clone https://github.com/stvowns/balina2.git
 cd balina2droid
 ```
 
-### 2. Sanal Ortam Oluşturma
-```bash
-python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate     # Windows
-```
-
-### 3. Kurulum (2 Seçenek)
+### 2. Kurulum (2 Seçenek)
 
 #### 🚀 Otomatik Kurulum (Önerilen)
 Kurulum script'i tüm adımları sizin için yapar:
@@ -92,13 +85,24 @@ chmod +x install.sh
 ```
 
 #### 🔧 Manuel Kurulum
-Adımları manuel olarak takip etmek için:
+Script'in yaptığı adımları manuel olarak takip etmek için:
 ```bash
-# 3. Bağımlılıkları yükle
+# 1. Python'ın yüklü olduğunu kontrol edin
+python3 --version
+
+# 2. Sanal ortam oluşturun (eğer mevcut değilse)
+python3 -m venv venv
+
+# 3. Sanal ortamı aktifleştirin
+source venv/bin/activate  # Linux/Mac
+# venv\Scripts\activate     # Windows
+
+# 4. pip'ı güncelleyin ve bağımlılıkları yükleyin
+pip install --upgrade pip
 pip install -r requirements.txt
 
-# 4. Script'i çalıştırılabilir yapın
-chmod +x install.sh
+# 5. Kurulumu tamamladığınızda kontrol edin
+python3 main.py --list
 ```
 
 ## ⚙️ 4. Çoklu Cüzdan Yapılandırması

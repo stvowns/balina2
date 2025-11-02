@@ -13,9 +13,13 @@ fi
 python_version=$(python3 --version 2>&1 | grep -Po '(?<=Python )\d+\.\d+')
 echo "✅ Python3 $python_version bulundu"
 
-# Sanal ortam oluşturma (isteğe bağlı)
-echo "📦 Sanal ortam oluşturuluyor..."
-python3 -m venv venv
+# Sanal ortam kontrolü
+if [ ! -d "venv" ]; then
+    echo "📦 Sanal ortam oluşturuluyor..."
+    python3 -m venv venv
+else
+    echo "✅ Sanal ortam zaten mevcut"
+fi
 
 # Sanal ortamı aktifleştirme
 echo "🔄 Sanal ortam aktifleştiriliyor..."
