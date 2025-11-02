@@ -82,18 +82,26 @@ source venv/bin/activate  # Linux/Mac
 # venv\Scripts\activate     # Windows
 ```
 
-### 3. Bağımlılıkları Yükleme
-```bash
-pip install -r requirements.txt
-```
+### 3. Kurulum (2 Seçenek)
 
-### 4. Kurulum Script'ini Çalıştırma (Önerilen)
+#### 🚀 Otomatik Kurulum (Önerilen)
+Kurulum script'i tüm adımları sizin için yapar:
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-## ⚙️ Çoklu Cüzdan Yapılandırması
+#### 🔧 Manuel Kurulum
+Adımları manuel olarak takip etmek için:
+```bash
+# 3. Bağımlılıkları yükle
+pip install -r requirements.txt
+
+# 4. Script'i çalıştırılabilir yapın
+chmod +x install.sh
+```
+
+## ⚙️ 4. Çoklu Cüzdan Yapılandırması
 
 ### 📱 1. Telegram Bot Oluşturma
 1. Telegram'da **[@BotFather](https://t.me/botfather)** ile konuşun
@@ -107,7 +115,7 @@ python3 get_chat_id.py
 ```
 Bot token'ı girip botunuza mesaj gönderin, chat ID'nizi alacaksınız.
 
-### 🏗️ 3. Çoklu Cüzdan Konfigürasyonu
+### 🏗️ 5. Çoklu Cüzdan Konfigürasyonu
 
 #### Yöntem 1: Individual Environment Variables (Önerilen)
 `.env` dosyasına aşağıdakileri ekleyin:
@@ -152,7 +160,7 @@ TELEGRAM_BOT_TOKEN=BOT_TOKENINIZ
 TELEGRAM_CHAT_ID=CHAT_ID
 ```
 
-### 📧 4. E-posta Bildirimleri (İsteğe Bağlı)
+### 📧 6. E-posta Bildirimleri (İsteğe Bağlı)
 
 E-posta bildirimlerini aktifleştirmek için Gmail App Password oluşturmanız gerekir:
 
@@ -207,7 +215,7 @@ WALLET_2_EMAIL_RECIPIENT=savings@example.com
 - **Kapatmak için**: `#` işaretleri ekleyin veya satırları silin
 - **Sadece Telegram**: E-posta ayarlarını boş bırakın
 
-### ⚡ 5. İleri Seviye Yapılandırma
+### ⚡ 7. İleri Seviye Yapılandırma
 ```bash
 # Kontrol sıklığı (saniye)
 CHECK_INTERVAL=600  # 10 dakika
