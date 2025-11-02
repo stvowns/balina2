@@ -5,6 +5,17 @@ Telegram Bot Helper - Multiple methods to get Chat ID
 
 import requests
 import json
+import os
+from dotenv import load_dotenv
+
+def get_bot_token_from_config():
+    """Get bot token from environment configuration"""
+    load_dotenv()
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not bot_token:
+        print("❌ TELEGRAM_BOT_TOKEN not found in .env file")
+        return None
+    return bot_token
 
 def get_bot_info(bot_token):
     """Get bot information"""
@@ -65,10 +76,15 @@ def check_updates(bot_token):
         return None
 
 def main():
-    bot_token = "8309783593:AAFkOWkfJlmNJowcx5rMGxq4kBG5fKlqPww"
-    
+    # Get bot token from config
+    bot_token = get_bot_token_from_config()
+    if not bot_token:
+        print("❌ Please configure TELEGRAM_BOT_TOKEN in your .env file first")
+        return
+
     print("🤖 Telegram Bot Helper")
     print("="*50)
+    print(f"📱 Using bot token: {bot_token[:10]}...{bot_token[-4:]}")
     
     # Get bot info
     print("Getting bot information...")

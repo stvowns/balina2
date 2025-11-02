@@ -4,10 +4,17 @@ Check Telegram for chat ID without interactive input
 """
 
 import requests
+import os
+from dotenv import load_dotenv
 
 def check_messages():
     """Check for messages and get chat_id"""
-    bot_token = "8309783593:AAFkOWkfJlmNJowcx5rMGxq4kBG5fKlqPww"
+    # Get bot token from config
+    load_dotenv()
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not bot_token:
+        print("❌ TELEGRAM_BOT_TOKEN not found in .env file")
+        return None
     
     print("🤖 Checking for Telegram messages...")
     print(f"Bot link: https://t.me/{bot_token.split(':')[0]}")

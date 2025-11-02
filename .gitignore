@@ -50,3 +50,35 @@ config.py
 secure_config.py
 *.key
 *.pem
+
+# Additional project-specific files
+transactions.log
+wallet_tracker.log
+debug_*.log
+temp_*.log
+*.tmp
+*.cache
+*.bak
+
+# Screenshots and temporary files
+*.png
+*.jpg
+*.jpeg
+*.gif
+screenshots/
+temp/
+
+# Test output
+test_output/
+test_reports/
+coverage.xml
+.coverage
+
+# API rate limiting and cache
+api_cache/
+.cache/
+
+# Backup files
+*_backup
+*_old
+*_original

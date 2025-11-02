@@ -4,6 +4,17 @@ Get Telegram Chat ID using the bot token from config
 """
 
 import requests
+import os
+from dotenv import load_dotenv
+
+def get_bot_token_from_config():
+    """Get bot token from environment configuration"""
+    load_dotenv()
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not bot_token:
+        print("❌ TELEGRAM_BOT_TOKEN not found in .env file")
+        return None
+    return bot_token
 
 def get_chat_id(bot_token: str) -> str:
     """Get chat_id from bot messages"""
@@ -63,10 +74,15 @@ def test_telegram_notification(bot_token: str, chat_id: str) -> bool:
 def main():
     print("🤖 Getting Telegram Chat ID")
     print("="*50)
-    
-    # Bot token from config
-    bot_token = "8309783593:AAFkOWkfJlmNJowcx5rMGxq4kBG5fKlqPww"
-    
+
+    # Get bot token from config
+    bot_token = get_bot_token_from_config()
+    if not bot_token:
+        print("❌ Please configure TELEGRAM_BOT_TOKEN in your .env file first")
+        return
+
+    print(f"📱 Using bot token: {bot_token[:10]}...{bot_token[-4:]}")
+
     # Get chat ID
     chat_id = get_chat_id(bot_token)
     

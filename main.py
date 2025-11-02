@@ -8,6 +8,10 @@ import time
 from datetime import datetime
 import schedule
 from multi_wallet_tracker import MultiWalletTracker
+from logger_config import (
+    setup_logging, get_logger, log_startup, log_wallet_summary,
+    log_wallet_action, log_error, log_notification
+)
 try:
     from config import load_config
     from utils import save_transaction_log
@@ -19,27 +23,37 @@ except ImportError:
 
 class CryptoWalletMonitor:
     def __init__(self):
+        # Initialize logging
+        setup_logging(level="INFO", log_file="wallet_tracker.log")
+        self.logger = get_logger(__name__)
+
         self.config = load_config()
         self.multi_tracker = MultiWalletTracker(self.config)
         self.check_interval = self.config["check_interval"]
 
         wallet_count = len(self.multi_tracker.trackers)
-        print(f"🚀 Starting multi-wallet tracker for {wallet_count} wallet(s)")
-        print(f"⏰ Check interval: {self.check_interval} seconds")
-        print(f"📧 Email notifications: {'Enabled' if self.config['notification_settings']['email']['enabled'] else 'Disabled'}")
-        print(f"📱 Telegram notifications: {'Enabled' if self.config['notification_settings']['telegram']['enabled'] else 'Disabled'}")
+
+        # Log startup information
+        log_startup(wallet_count, self.check_interval)
+
+        email_enabled = self.config['notification_settings']['email']['enabled']
+        telegram_enabled = self.config['notification_settings']['telegram']['enabled']
+        self.logger.info(f"📧 Email notifications: {'Enabled' if email_enabled else 'Disabled'}")
+        self.logger.info(f"📱 Telegram notifications: {'Enabled' if telegram_enabled else 'Disabled'}")
 
         # List configured wallets
         for wallet_id, wallet_config in self.multi_tracker.wallets.items():
             if wallet_config.get("enabled", True):
                 from utils import format_address
-                status = "✅ Active" if wallet_id in self.multi_tracker.trackers else "❌ Error"
-                print(f"  {status} {wallet_config['name']} ({format_address(wallet_config['address'])})")
+                formatted_address = format_address(wallet_config['address'])
+                status = "active" if wallet_id in self.multi_tracker.trackers else "error"
+                log_wallet_summary(wallet_config['name'], formatted_address, status)
         
     def check_wallet_changes(self):
         """Main check function for wallet changes"""
         try:
-            print(f"\n🔍 Checking all wallets at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            log_wallet_action("Checking all wallets", f"at {current_time}")
 
             # Check all wallets
             results = self.multi_tracker.check_all_wallets()
@@ -49,67 +63,76 @@ class CryptoWalletMonitor:
 
             # Only print completion message if there were no important changes
             if total_changes == 0:
-                print("✅ No important changes detected across all wallets")
+                self.logger.info("✅ No important changes detected across all wallets")
             else:
-                print(f"✅ Check completed - {total_changes} notifications sent")
+                self.logger.info(f"✅ Check completed - {total_changes} notifications sent")
 
         except Exception as e:
-            print(f"❌ Error during wallet check: {e}")
+            log_error("wallet check", e, "Multi-wallet tracker")
     
     def send_initial_summary(self):
         """Send initial wallet summary on startup"""
         try:
             self.multi_tracker.send_initial_summary()
-            print("✅ Initial summaries sent")
+            self.logger.info("✅ Initial summaries sent")
         except Exception as e:
-            print(f"❌ Error sending initial summary: {e}")
+            log_error("initial summary", e, "Multi-wallet tracker")
     
     def run_manual_check(self):
         """Run a one-time check and display full summary"""
-        print("🔍 Running manual multi-wallet check...")
+        self.logger.info("🔍 Running manual multi-wallet check...")
         summaries = self.multi_tracker.get_all_wallets_summary()
 
-        print(f"\n{'='*80}")
-        print(f"📊 MULTI-WALLET SUMMARY - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{'='*80}")
+        separator = "=" * 80
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        self.logger.info(f"\n{separator}")
+        self.logger.info(f"📊 MULTI-WALLET SUMMARY - {current_time}")
+        self.logger.info(f"{separator}")
 
         total_eth_balance = 0
 
         for wallet_id, summary in summaries.items():
             wallet_config = self.multi_tracker.get_wallet_config(wallet_id)
-            print(f"\n📱 Wallet: {wallet_config['name']}")
-            print(f"   Address: {summary['wallet_address']}")
-            print(f"   Status: {'✅ Active' if summary.get('enabled', True) else '❌ Disabled'}")
+            self.logger.info(f"\n📱 Wallet: {wallet_config['name']}")
+            self.logger.info(f"   Address: {summary['wallet_address']}")
+            status = "✅ Active" if summary.get('enabled', True) else "❌ Disabled"
+            self.logger.info(f"   Status: {status}")
 
             if 'error' in summary:
-                print(f"   Error: {summary['error']}")
+                self.logger.error(f"   Error: {summary['error']}")
                 continue
 
             eth_balance = summary.get('eth_balance', 0)
             if eth_balance:
-                print(f"   ETH Balance: {eth_balance:.4f} ETH")
+                self.logger.info(f"   ETH Balance: {eth_balance:.4f} ETH")
                 total_eth_balance += eth_balance
             else:
-                print(f"   ETH Balance: N/A")
+                self.logger.info(f"   ETH Balance: N/A")
 
             # Hyperliquid positions summary
             if summary.get('hyperliquid_positions'):
                 positions = summary['hyperliquid_positions']
                 if 'marginSummary' in positions:
                     margin = positions['marginSummary']
-                    print(f"   Account Value: ${float(margin.get('accountValue', 0)):,.2f}")
-                    print(f"   Position Value: ${float(margin.get('totalNotion', 0)):,.2f}")
-                    print(f"   Margin Usage: {float(margin.get('marginUsage', 0))*100:.2f}%")
+                    account_value = float(margin.get('accountValue', 0))
+                    position_value = float(margin.get('totalNotion', 0))
+                    margin_usage = float(margin.get('marginUsage', 0)) * 100
+
+                    self.logger.info(f"   Account Value: ${account_value:,.2f}")
+                    self.logger.info(f"   Position Value: ${position_value:,.2f}")
+                    self.logger.info(f"   Margin Usage: {margin_usage:.2f}%")
 
             # Recent transactions
             if summary.get('recent_transactions'):
-                print(f"   Recent Transactions: {len(summary['recent_transactions'])}")
+                self.logger.info(f"   Recent Transactions: {len(summary['recent_transactions'])}")
 
         # Overall summary
-        print(f"\n{'='*80}")
-        print(f"💰 TOTAL ETH BALANCE: {total_eth_balance:.4f} ETH")
-        print(f"📱 ACTIVE WALLETS: {len([s for s in summaries.values() if s.get('enabled', True) and 'error' not in s])}")
-        print(f"{'='*80}")
+        active_wallets = len([s for s in summaries.values() if s.get('enabled', True) and 'error' not in s])
+        self.logger.info(f"\n{separator}")
+        self.logger.info(f"💰 TOTAL ETH BALANCE: {total_eth_balance:.4f} ETH")
+        self.logger.info(f"📱 ACTIVE WALLETS: {active_wallets}")
+        self.logger.info(f"{separator}")
     
     def start_monitoring(self):
         """Start continuous monitoring"""
@@ -118,15 +141,15 @@ class CryptoWalletMonitor:
         # Schedule regular checks
         schedule.every(self.check_interval).seconds.do(self.check_wallet_changes)
 
-        print(f"🔄 Multi-wallet monitoring started. Checking every {self.check_interval} seconds.")
-        print("Press Ctrl+C to stop")
+        self.logger.info(f"🔄 Multi-wallet monitoring started. Checking every {self.check_interval} seconds.")
+        self.logger.info("Press Ctrl+C to stop")
 
         try:
             while True:
                 schedule.run_pending()
                 time.sleep(1)
         except KeyboardInterrupt:
-            print("\n👋 Multi-wallet monitoring stopped by user")
+            self.logger.info("\n👋 Multi-wallet monitoring stopped by user")
 
 def main():
     monitor = CryptoWalletMonitor()
@@ -137,19 +160,20 @@ def main():
         monitor.run_manual_check()
     elif len(sys.argv) > 1 and sys.argv[1] == "--list":
         # List configured wallets
-        print("\n📱 Configured Wallets:")
-        print(f"{'='*60}")
+        logger = get_logger(__name__)
+        logger.info("\n📱 Configured Wallets:")
+        logger.info(f"{'='*60}")
         for wallet_id, wallet_config in monitor.multi_tracker.wallets.items():
             status = "✅ Active" if monitor.multi_tracker.is_wallet_enabled(wallet_id) else "❌ Disabled"
             from utils import format_address
-            print(f"  {status} {wallet_config['name']}")
-            print(f"      Address: {format_address(wallet_config['address'])}")
-            print(f"      ID: {wallet_id}")
+            logger.info(f"  {status} {wallet_config['name']}")
+            logger.info(f"      Address: {format_address(wallet_config['address'])}")
+            logger.info(f"      ID: {wallet_id}")
             if wallet_config.get("telegram_chat_id"):
-                print(f"      Telegram Chat: {wallet_config['telegram_chat_id']}")
+                logger.info(f"      Telegram Chat: {wallet_config['telegram_chat_id']}")
             if wallet_config.get("email_recipient"):
-                print(f"      Email: {wallet_config['email_recipient']}")
-            print()
+                logger.info(f"      Email: {wallet_config['email_recipient']}")
+            logger.info("")
     else:
         monitor.start_monitoring()
 
