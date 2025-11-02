@@ -41,6 +41,27 @@ Balina2Droid, kripto para yatırımcılarının ve trader'ların birden fazla c�
 - 🔄 **Pozisyon Değişti** - Anlamlı pozisyon değişikliklerinde
 - 💰 **Bakiye Değişimi** - Anlamlı ETH bakiye değişikliklerinde
 
+## 🏗️ Konfigürasyon Yöntemleri
+
+Balina2Droid 3 farklı konfigürasyon yöntemi sunar:
+
+### 🥇 **Yöntem 1: Individual Environment Variables (Önerilen)**
+- ✅ **Kullanıcı Dostu** - Her ayar ayrı satırda, kolay yönetim
+- ✅ **Kopyala-Yapıştır** - Yeni cüzdan eklemek çok basit
+- ✅ **Anlaşılır** - JSON formatının karmaşıklığı yok
+- ⭐ **Yeni Başlayanlar İçin İdeal**
+
+### 🥈 **Yöntem 2: JSON Konfigürasyonu (İleri Düzey)**
+- 📦 **Tek Satırda** - Tüm cüzdanlar bir JSON objesinde
+- 🔧 **Gelişmiş** - Karmaşık yapılar için esnek
+- ⚡ **Hızlı** - Tek komutla tüm cüzdanlar
+- 🎯 **Teknik Kullanıcılar İçin**
+
+### 🥉 **Yöntem 3: Tek Cüzdan (Backward)**
+- 🔄 **Mevcut Uyum** - Eski tek cüzdan sistemleriyle uyumlu
+- 📝 **Basit** - Sadece bir cüzdan için minimal ayar
+- 🔄 **Geçiş** - Multi-wallet'a geçiş için köprü
+
 ## 📋 Kurulum
 
 ### 🔧 Gereksinimler
@@ -88,13 +109,29 @@ Bot token'ı girip botunuza mesaj gönderin, chat ID'nizi alacaksınız.
 
 ### 🏗️ 3. Çoklu Cüzdan Konfigürasyonu
 
-#### Yöntem 1: JSON Konfigürasyonu (Önerilen)
+#### Yöntem 1: Individual Environment Variables (Önerilen)
 `.env` dosyasına aşağıdakileri ekleyin:
 ```bash
-WALLETS_JSON={"trading":{"address":"0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45","name":"Trading Wallet","enabled":true,"telegram_chat_id":"123456789"},"savings":{"address":"0x1234567890123456789012345678901234567890","name":"Savings Wallet","enabled":false}}
+# Cüzdan 1 - Trading Wallet
+WALLET_1_ADDRESS=0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45
+WALLET_1_NAME=Trading Wallet
+WALLET_1_ENABLED=true
+# WALLET_1_TELEGRAM_CHAT_ID=123456789  # Sadece farklı chat ID kullanılacaksa
+
+# Cüzdan 2 - Savings Wallet
+WALLET_2_ADDRESS=0x1234567890123456789012345678901234567890
+WALLET_2_NAME=Savings Wallet
+WALLET_2_ENABLED=false
+
+# API anahtarı (zorunlu)
+ETHERSCAN_API_KEY=SIZIN_ETHERSCAN_API_KEY
+
+# Global Telegram ayarları
+TELEGRAM_BOT_TOKEN=BOT_TOKENINIZ
+TELEGRAM_CHAT_ID=GLOBAL_CHAT_ID
 ```
 
-#### Yöntem 2: Individual Environment Variables
+#### Yöntem 2: JSON Konfigürasyonu (İleri Düzey Kullanıcılar)
 ```bash
 # API anahtarı (zorunlu)
 ETHERSCAN_API_KEY=SIZIN_ETHERSCAN_API_KEY
@@ -103,23 +140,16 @@ ETHERSCAN_API_KEY=SIZIN_ETHERSCAN_API_KEY
 TELEGRAM_BOT_TOKEN=BOT_TOKENINIZ
 TELEGRAM_CHAT_ID=GLOBAL_CHAT_ID
 
-# Cüzdan 1
-WALLET_1_ADDRESS=0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45
-WALLET_1_NAME=Trading Wallet
-WALLET_1_ENABLED=true
-WALLET_1_TELEGRAM_CHAT_ID=TRADING_CHAT_ID
-
-# Cüzdan 2
-WALLET_2_ADDRESS=0x1234567890123456789012345678901234567890
-WALLET_2_NAME=Savings Wallet
-WALLET_2_ENABLED=true
-WALLET_2_EMAIL_RECIPIENT=savings@example.com
+# Tüm cüzdanlar JSON formatında
+WALLETS_JSON={"trading":{"address":"0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45","name":"Trading Wallet","enabled":true,"telegram_chat_id":"123456789"},"savings":{"address":"0x1234567890123456789012345678901234567890","name":"Savings Wallet","enabled":false}}
 ```
 
 #### Yöntem 3: Tek Cüzdan (Backward Compatibility)
 ```bash
 WALLET_ADDRESS=0xSINGLE_WALLET_ADDRESS
 ETHERSCAN_API_KEY=SIZIN_ETHERSCAN_API_KEY
+TELEGRAM_BOT_TOKEN=BOT_TOKENINIZ
+TELEGRAM_CHAT_ID=CHAT_ID
 ```
 
 ### 📧 4. E-posta Bildirimleri (İsteğe Bağlı)
