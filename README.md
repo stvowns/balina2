@@ -122,13 +122,60 @@ WALLET_ADDRESS=0xSINGLE_WALLET_ADDRESS
 ETHERSCAN_API_KEY=SIZIN_ETHERSCAN_API_KEY
 ```
 
-### 📧 4. İsteğe Bağlı E-posta Bildirimleri
+### 📧 4. E-posta Bildirimleri (İsteğe Bağlı)
+
+E-posta bildirimlerini aktifleştirmek için Gmail App Password oluşturmanız gerekir:
+
+#### 🔒 Gmail App Password Oluşturma
+1. **Google Hesabınızda**: Account → Security → 2-Step Verification
+2. **2-Step Verification'i aktifleştirin**
+3. **App passwords seçeneğine tıklayın**
+4. **"Mail" için app password oluşturun** (16 haneli şifre)
+5. **Bu şifreyi kopyalayın** - normal Gmail şifrenizi KULLANMAYIN!
+
+#### 📧 E-posta Konfigürasyonu
 ```bash
-# Gmail ayarları
-EMAIL_SENDER=gmail@gmail.com
-EMAIL_PASSWORD=UYGULAMA_SIFRENIZ  # App password kullanın
-EMAIL_RECIPIENT=default@example.com
+# E-posta gönderen hesap (Gmail önerilir)
+EMAIL_SENDER=your_email@gmail.com
+EMAIL_PASSWORD=abcdefghijklmnop  # 16 haneli App Password
+EMAIL_RECIPIENT=alerts@example.com    # Bildirim alacak e-posta
 ```
+
+#### 🎯 E-posta Bildirim Seçenekleri
+
+**Seçenek 1 - Global E-posta (Tüm cüzdanlar için aynı):**
+```bash
+EMAIL_SENDER=tracker@gmail.com
+EMAIL_PASSWORD=abcdefghijklmnop
+EMAIL_RECIPIENT=alerts@example.com
+# Sonuç: Tüm cüzdan bildirimleri alerts@example.com'e gider
+```
+
+**Seçenek 2 - Cüzdan Bazlı E-posta:**
+```bash
+# Global e-posta (fallback)
+EMAIL_SENDER=tracker@gmail.com
+EMAIL_PASSWORD=abcdefghijklmnop
+EMAIL_RECIPIENT=default@example.com
+
+# Cüzdan 1 için özel e-posta
+WALLET_1_EMAIL_RECIPIENT=trading@example.com
+
+# Cüzdan 2 için özel e-posta
+WALLET_2_EMAIL_RECIPIENT=savings@example.com
+# Sonuç: Her cüzdan farklı e-postaya bildirim gönderir
+```
+
+#### ⚙️ Desteklenen E-posta Sağlayıcıları
+- ✅ **Gmail** (App Password ile - önerilir)
+- ✅ **Outlook/Hotmail**
+- ✅ **Yahoo Mail**
+- ✅ **Corporate SMTP** (özel SMTP ayarları ile)
+
+#### 🔄 Aç/Kapat İşlemi
+- **Açmak için**: `#` işaretlerini kaldırın ve bilgileri doldurun
+- **Kapatmak için**: `#` işaretleri ekleyin veya satırları silin
+- **Sadece Telegram**: E-posta ayarlarını boş bırakın
 
 ### ⚡ 5. İleri Seviye Yapılandırma
 ```bash
@@ -141,6 +188,15 @@ POSITION_CHANGE_THRESHOLD=1000  # $1000
 ```
 
 ## 🚀 Kullanım
+
+### 🔔 Bildirim Durumu Kontrolü
+Önce bildirim ayarlarınızın doğru çalışıp çalışmadığını kontrol edin:
+```bash
+python3 main.py --list
+```
+Çıktıda şu bilgileri göreceksiniz:
+- 📧 Email notifications: Enabled/Disabled
+- 📱 Telegram notifications: Enabled/Disabled
 
 ### 📋 Cüzdanları Listeleme
 Yapılandırılmış tüm cüzdanları ve durumlarını gösterir:
