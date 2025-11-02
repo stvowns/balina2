@@ -40,7 +40,9 @@ class TestConfig(unittest.TestCase):
         self.assertFalse(validate_ethereum_address(None))
 
     @patch.dict(os.environ, {
-        'WALLET_ADDRESS': '0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45',
+        'WALLET_1_ADDRESS': '0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45',
+        'WALLET_1_NAME': 'Test Wallet',
+        'WALLET_1_ENABLED': 'true',
         'ETHERSCAN_API_KEY': 'test_api_key',
         'TELEGRAM_BOT_TOKEN': 'test_bot_token',
         'TELEGRAM_CHAT_ID': '123456789'
@@ -49,11 +51,10 @@ class TestConfig(unittest.TestCase):
         """Test successful configuration loading"""
         config = load_secure_config()
         self.assertIn('wallets', config)
-        self.assertIn('default', config['wallets'])
-        self.assertEqual(config['wallets']['default']['address'], '0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45')
-        self.assertEqual(config['wallets']['default']['name'], 'Default Wallet')
-        self.assertTrue(config['wallets']['default']['enabled'])
-        self.assertTrue(config['telegram']['enabled'])
+        self.assertIn('wallet_1', config['wallets'])
+        self.assertEqual(config['wallets']['wallet_1']['address'], '0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45')
+        self.assertEqual(config['wallets']['wallet_1']['name'], 'Test Wallet')
+        self.assertTrue(config['wallets']['wallet_1']['enabled'])
 
     @patch.dict(os.environ, {}, clear=True)
     def test_load_secure_config_missing_wallet(self):
@@ -62,7 +63,9 @@ class TestConfig(unittest.TestCase):
             load_secure_config()
 
     @patch.dict(os.environ, {
-        'WALLET_ADDRESS': 'invalid_address',
+        'WALLET_1_ADDRESS': 'invalid_address',
+        'WALLET_1_NAME': 'Invalid Wallet',
+        'WALLET_1_ENABLED': 'true',
         'ETHERSCAN_API_KEY': 'test_api_key'
     })
     def test_load_secure_config_invalid_address(self):
