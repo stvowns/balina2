@@ -4,12 +4,19 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from typing import Dict, Optional, List
+from utils import format_address
+
+class NotificationError(Exception):
+    """Notification system related errors"""
+    pass
 
 class NotificationSystem:
     def __init__(self, config: Dict):
         self.email_config = config.get("email", {})
         self.telegram_config = config.get("telegram", {})
         self.console_enabled = config.get("console", {}).get("enabled", True)
+        self.wallet_address = config.get("wallet_address", "")
+        self.wallet_name = config.get("wallet_name", "Unknown Wallet")
     
     def send_notification(self, message: str, title: str = "Wallet Update") -> bool:
         """Send notification through all enabled channels"""
@@ -95,20 +102,29 @@ class NotificationSystem:
             msg['From'] = self.email_config["sender_email"]
             msg['To'] = self.email_config["recipient_email"]
             msg['Subject'] = title
-            
+
             msg.attach(MIMEText(message, 'plain'))
-            
+
             server = smtplib.SMTP(self.email_config["smtp_server"], self.email_config["smtp_port"])
             server.starttls()
             server.login(self.email_config["sender_email"], self.email_config["sender_password"])
             text = msg.as_string()
             server.sendmail(self.email_config["sender_email"], self.email_config["recipient_email"], text)
             server.quit()
-            
+
             print("Email notification sent successfully")
             return True
-        except Exception as e:
-            print(f"Failed to send email: {e}")
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"Email authentication failed: {e}")
+            return False
+        except smtplib.SMTPConnectError as e:
+            print(f"Email server connection failed: {e}")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"Email sending failed: {e}")
+            return False
+        except KeyError as e:
+            print(f"Email configuration missing: {e}")
             return False
     
     def _send_telegram(self, message: str) -> bool:
@@ -120,15 +136,18 @@ class NotificationSystem:
                 "text": message,
                 "parse_mode": "HTML"
             }
-            response = requests.post(url, json=payload)
+            response = requests.post(url, json=payload, timeout=30)
             if response.status_code == 200:
                 print("Telegram notification sent successfully")
                 return True
             else:
                 print(f"Telegram API error: {response.text}")
                 return False
-        except Exception as e:
+        except requests.RequestException as e:
             print(f"Failed to send Telegram notification: {e}")
+            return False
+        except KeyError as e:
+            print(f"Telegram configuration missing: {e}")
             return False
     
     def format_balance_change(self, old_balance: float, new_balance: float, change: float) -> str:
@@ -136,7 +155,7 @@ class NotificationSystem:
         direction = "📈" if change > 0 else "📉"
         return f"""
 {direction} BALANCE CHANGE DETECTED
-Wallet: 0xc2a3...e5f2
+Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Previous Balance: {old_balance:.4f} ETH
 New Balance: {new_balance:.4f} ETH
 Change: {change:+.4f} ETH ({(change/old_balance*100):+.2f}%)
@@ -170,7 +189,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         
         summary = f"""
 {emoji} {title}
-Wallet: 0xc2a3...e5f2
+Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${float(account_value):,.2f}
 Total Position Value: ${float(total_notion):,.2f}
 Unrealized PnL: ${float(unrealized_pnl):,.2f}
@@ -199,7 +218,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                     # Calculate current price (position value / size)
                     try:
                         current_price = abs(float(position_value) / float(size)) if float(size) != 0 else 0
-                    except:
+                    except (ValueError, ZeroDivisionError, TypeError):
                         current_price = 0
                     
                     if float(size) != 0:
@@ -213,13 +232,13 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     def format_transaction_alert(self, tx: Dict) -> str:
         """Format transaction notification"""
         value_eth = float(tx.get("value", 0)) / 10**18
-        direction = "OUT" if tx["from"].lower() == "0xc2a30212a8ddac9e123944d6e29faddce994e5f2".lower() else "IN"
-        
+        direction = "OUT" if tx["from"].lower() == self.wallet_address.lower() else "IN"
+
         return f"""
 💰 NEW TRANSACTION DETECTED
 Direction: {direction}
 Value: {value_eth:.4f} ETH
-To: {tx.get('to', 'N/A')}
+To: {format_address(tx.get('to', 'N/A'))}
 Hash: {tx.get('hash', 'N/A')}
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
@@ -230,12 +249,12 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             return "No transactions to display"
         
         summary = "💰 DEPOSIT/WITHDRAWAL DETECTED\n"
-        summary += f"Wallet: 0xc2a3...e5f2\n"
+        summary += f"Wallet: {self.wallet_name} ({format_address(self.wallet_address)})\n"
         summary += f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        
+
         for tx in transactions:
             asset = tx.get("asset", "Unknown")
-            wallet_address = "0xc2a30212a8ddac9e123944d6e29faddce994e5f2".lower()
+            wallet_address = self.wallet_address.lower()
             
             # Calculate value based on asset type
             if asset == "ETH":
@@ -287,10 +306,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             leverage = stats.get("leverage", 0)
             long_pct = stats.get("long_percentage", 0)
             short_pct = stats.get("short_percentage", 0)
-            
+
             summary = f"""
 📊 HYPERLIQUID POSITION SUMMARY
-Wallet: 0xc2a3...e5f2
+Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${float(account_value):,.2f}
 Total Position Value: ${float(total_pos_value):,.2f}
 Unrealized PnL: ${float(unrealized_pnl):,.2f}
@@ -308,7 +327,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             # Fallback to original format if no stats provided
             summary = f"""
 📊 HYPERLIQUID POSITION SUMMARY
-Wallet: 0xc2a3...e5f2
+Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${float(account_value):,.2f}
 Total Position Value: ${float(total_notion):,.2f}
 Unrealized PnL: ${float(unrealized_pnl):,.2f}
@@ -324,25 +343,25 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 if "position" in pos_data and pos_data["position"]:
                     position = pos_data["position"]
                     coin = position.get("coin", "Unknown")
-                    size = float(position.get("szi", 0))
-                    entry_price = float(position.get("entryPx", 0))
-                    position_value = float(position.get("positionValue", 0))
-                    pnl = float(position.get("unrealizedPnl", 0))
+                    size = float(position.get("szi") or 0)
+                    entry_price = float(position.get("entryPx") or 0)
+                    position_value = float(position.get("positionValue") or 0)
+                    pnl = float(position.get("unrealizedPnl") or 0)
                     leverage = position.get("leverage", {}).get("value", 0)
-                    liquidation_price = float(position.get("liquidationPx", 0))
+                    liquidation_price = float(position.get("liquidationPx") or 0)
                     
                     if size != 0:  # Only show active positions
                         side = "LONG" if size > 0 else "SHORT"
                         size_abs = abs(size)
                         pnl_emoji = "🟢" if pnl > 0 else "🔴" if pnl < 0 else "⚪"
-                        margin_used = float(position.get("marginUsed", 0))
-                        
+                        margin_used = float(position.get("marginUsed") or 0)
+
                         # Calculate current price and other metrics
                         current_price = abs(position_value / size) if size != 0 else 0
-                        roe = float(position.get("returnOnEquity", 0)) * 100
+                        roe = float(position.get("returnOnEquity") or 0) * 100
                         funding = position.get("cumFunding", {})
-                        funding_since_open = float(funding.get("sinceOpen", 0))
-                        funding_change = float(funding.get("sinceChange", 0))
+                        funding_since_open = float(funding.get("sinceOpen") or 0)
+                        funding_change = float(funding.get("sinceChange") or 0)
                         funding_emoji = "💰" if funding_since_open > 0 else "💸" if funding_since_open < 0 else "⚪"
                         
                         summary += f"  {pnl_emoji} {coin} {side}: {size_abs:,.2f} @ ${entry_price:,.2f}\n"

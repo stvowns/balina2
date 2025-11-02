@@ -1,79 +1,280 @@
-# Balina2Droid - Crypto Wallet Tracker
+# 🐋 Balina2Droid - Çoklu Cüzdan Kripto Takip Sistemi
 
-A Python application that monitors Ethereum wallet and Hyperliquid positions for changes and sends notifications via Telegram.
+> **Gelişmiş kripto para cüzdanı izleme aracı** - Birden fazla Ethereum cüzdanını ve Hyperliquid pozisyonlarını aynı anda izleyen, önemli değişiklikler olduğunda Telegram üzerinden anlık bildirim gönderen Python uygulaması.
 
-## Features
+[![Python](https://img.shields.io/badge/Python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg)](https://core.telegram.org/bots)
 
-- **Wallet Monitoring**: Tracks ETH balance changes and token transfers
-- **Position Tracking**: Monitors Hyperliquid perpetual positions
-- **Smart Notifications**: Only sends notifications for important events:
-  - Position opened/closed/changed
-  - Deposits and withdrawals (ETH, BTC, and other ERC-20 tokens)
-  - Significant balance changes
-- **Telegram Integration**: Real-time notifications via Telegram bot
-- **Configurable**: 10-minute check intervals
+## ✨ Özellikler
 
-## Installation
+- 🚀 **Çoklu Cüzdan Desteği** - Aynı anda sınırsız sayıda cüzdanı izleme
+- 📱 **Cüzdan Bazlı Bildirimler** - Her cüzdan için ayrı Telegram/Email bildirim ayarları
+- 📊 **Akıllı İzleme** - Sadece önemli olaylar için bildirim (gürültü yok)
+- 🔔 **Gerçek Zamanlı Bildirimler** - Pozisyon değişiklikleri ve transferler için anlık bildirim
+- ⚙️ **Esnek Konfigürasyon** - JSON, environment variables veya tek cüzdan desteği
+- 🛡️ **Güvenli Yapılandırma** - Şifreli ve doğrulanmış konfigürasyon yönetimi
+- 🧪 **Test Kapsamı** - Kapsamlı birim test desteği
+- 🔄 **Backward Compatibility** - Mevcut tek cüzdan yapılandırmalarıyla tam uyumlu
 
-1. Clone the repository
-2. Create virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+## 🎯 Bu Proje Ne İşe Yarar?
 
-## Configuration
+Balina2Droid, kripto para yatırımcılarının ve trader'ların birden fazla cüzdanını tek bir yerden takip etmesini sağlayan profesyonel bir izleme aracıdır:
 
-1. Create a Telegram bot:
-   - Contact [@BotFather](https://t.me/botfather) on Telegram
-   - Create a new bot and get the bot token
+### 💼 Kimler İçin Uygun?
+- **Çoklu Cüzdan Kullanıcıları** - Farklı amaçlar için birden fazla cüzdanı olanlar
+- **Trader'lar** - Hyperliquid pozisyonlarını aktif olarak takip edenler
+- **Yatırımcılar** - Portföy değerlerini ve hareketlerini izlemek isteyenler
+- **Hesap Yöneticileri** - Müşteri cüzdanlarını izleyenler
 
-2. Get your Chat ID:
-   - Send a message to your bot
-   - Run `python3 get_chat_id.py` to get your chat ID
+### 📈 Neler Takip Edilir?
+- **ETH Bakiyesi** - Gelen/giden ETH transferleri
+- **ERC-20 Token'lar** - Tüm token transferleri (BTC, USDT vb.)
+- **Hyperliquid Pozisyonları** - Açık/kapalı pozisyonlar, PnL, marj kullanımı
+- **Hesap Değeri** - Toplam portföy değeri ve değişimleri
 
-3. Set up environment variables:
-   - Copy `.env.example` to `.env`
-   - Edit `.env` with your settings:
-     ```bash
-     WALLET_ADDRESS=your_wallet_address
-     ETHERSCAN_API_KEY=your_etherscan_api_key
-     TELEGRAM_BOT_TOKEN=your_bot_token
-     TELEGRAM_CHAT_ID=your_chat_id
-     ```
+### 🔔 Hangi Durumlarda Bildirim Gelir?
+- 📥 **Para Yatırma** - Cüzdana ETH veya token geldiğinde
+- 📤 **Para Çekme** - Cüzdan para gönderdiğinde
+- 🚀 **Pozisyon Açıldı** - Yeni pozisyon oluşturulduğunda
+- ✅ **Pozisyon Kapandı** - Pozisyon kapatıldığında
+- 🔄 **Pozisyon Değişti** - Anlamlı pozisyon değişikliklerinde
+- 💰 **Bakiye Değişimi** - Anlamlı ETH bakiye değişikliklerinde
 
-## Usage
+## 📋 Kurulum
 
-### Manual Check
+### 🔧 Gereksinimler
+- Python 3.7+
+- Telegram hesabı (bot oluşturmak için)
+- Etherscan API anahtarı
+
+### 1. Depoyu Klonlama
+```bash
+git clone https://github.com/stvowns/balina2.git
+cd balina2droid
+```
+
+### 2. Sanal Ortam Oluşturma
+```bash
+python3 -m venv venv
+source venv/bin/activate  # Linux/Mac
+# venv\Scripts\activate     # Windows
+```
+
+### 3. Bağımlılıkları Yükleme
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Kurulum Script'ini Çalıştırma (Önerilen)
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+## ⚙️ Çoklu Cüzdan Yapılandırması
+
+### 📱 1. Telegram Bot Oluşturma
+1. Telegram'da **[@BotFather](https://t.me/botfather)** ile konuşun
+2. `/newbot` komutunu verin
+3. Botunuza bir isim ve kullanıcı adı verin
+4. Bot token'ını kopyalayın (güvenli bir yerde saklayın)
+
+### 🔑 2. Chat ID Öğrenme
+```bash
+python3 get_chat_id.py
+```
+Bot token'ı girip botunuza mesaj gönderin, chat ID'nizi alacaksınız.
+
+### 🏗️ 3. Çoklu Cüzdan Konfigürasyonu
+
+#### Yöntem 1: JSON Konfigürasyonu (Önerilen)
+`.env` dosyasına aşağıdakileri ekleyin:
+```bash
+WALLETS_JSON={"trading":{"address":"0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45","name":"Trading Wallet","enabled":true,"telegram_chat_id":"123456789"},"savings":{"address":"0x1234567890123456789012345678901234567890","name":"Savings Wallet","enabled":false}}
+```
+
+#### Yöntem 2: Individual Environment Variables
+```bash
+# API anahtarı (zorunlu)
+ETHERSCAN_API_KEY=SIZIN_ETHERSCAN_API_KEY
+
+# Global Telegram ayarları
+TELEGRAM_BOT_TOKEN=BOT_TOKENINIZ
+TELEGRAM_CHAT_ID=GLOBAL_CHAT_ID
+
+# Cüzdan 1
+WALLET_1_ADDRESS=0x742d35Cc6634C0532925a3b8D4C9db96C4b4Db45
+WALLET_1_NAME=Trading Wallet
+WALLET_1_ENABLED=true
+WALLET_1_TELEGRAM_CHAT_ID=TRADING_CHAT_ID
+
+# Cüzdan 2
+WALLET_2_ADDRESS=0x1234567890123456789012345678901234567890
+WALLET_2_NAME=Savings Wallet
+WALLET_2_ENABLED=true
+WALLET_2_EMAIL_RECIPIENT=savings@example.com
+```
+
+#### Yöntem 3: Tek Cüzdan (Backward Compatibility)
+```bash
+WALLET_ADDRESS=0xSINGLE_WALLET_ADDRESS
+ETHERSCAN_API_KEY=SIZIN_ETHERSCAN_API_KEY
+```
+
+### 📧 4. İsteğe Bağlı E-posta Bildirimleri
+```bash
+# Gmail ayarları
+EMAIL_SENDER=gmail@gmail.com
+EMAIL_PASSWORD=UYGULAMA_SIFRENIZ  # App password kullanın
+EMAIL_RECIPIENT=default@example.com
+```
+
+### ⚡ 5. İleri Seviye Yapılandırma
+```bash
+# Kontrol sıklığı (saniye)
+CHECK_INTERVAL=600  # 10 dakika
+
+# Bildirim eşikleri
+BALANCE_CHANGE_THRESHOLD=0.1  # 0.1 ETH
+POSITION_CHANGE_THRESHOLD=1000  # $1000
+```
+
+## 🚀 Kullanım
+
+### 📋 Cüzdanları Listeleme
+Yapılandırılmış tüm cüzdanları ve durumlarını gösterir:
+```bash
+python3 main.py --list
+```
+
+### 🔍 Manuel Kontrol
+Tüm cüzdanları bir kez kontrol eder ve durum raporu gösterir:
 ```bash
 python3 main.py --check
 ```
 
-### Continuous Monitoring
+### 🔄 Sürekli İzleme
+Arka planda sürekli izleme başlatır:
 ```bash
 python3 main.py
 ```
 
-The application will check for changes every 10 minutes and send notifications for:
-- 🚀 Position Opened
-- ✅ Position Closed
-- 🔄 Position Changed
-- 📥 Deposits (ETH, BTC, tokens)
-- 📤 Withdrawals (ETH, BTC, tokens)
+### 🧪 Testleri Çalıştırma
+```bash
+# Tüm testler
+python3 test_runner.py
 
-## Requirements
+# Sadece çoklu cüzdan testleri
+python3 test_runner.py --multi
+```
 
-- Python 3.6+
-- requests
-- schedule
+## 📊 CLI Parametreleri Detayı
 
-## Security Notes
+| Komut | Açıklama | Kullanım Alanı |
+|-------|----------|---------------|
+| `python3 main.py --check` | ✅ **Manuel Kontrol** - Tüm cüzdanları bir kez kontrol eder, detaylı rapor gösterir | Hızlı durum kontrolü, test amaçlı |
+| `python3 main.py --list` | 📱 **Cüzdan Listesi** - Tüm yapılandırılmış cüzdanları ve ayarlarını listeler | Yapılandırma doğrulama |
+| `python3 main.py` | 🔄 **Sürekli İzleme** - Arka planda otomatik kontrol ve bildirim | Üretim kullanımı |
 
-- Never commit `.env` file with sensitive data to version control
-- Use `.env.example` as a template for your environment variables
-- Keep your API keys and bot tokens secure
-- The `.env` file is already included in `.gitignore`
+## 🔧 Yapılandırma Seçenekleri
+
+### 🏷️ Cüzdan Yönetimi
+```bash
+# Cüzdanları etkinleştirme/devre dışı bırakma
+WALLET_1_ENABLED=true
+WALLET_2_ENABLED=false
+
+# Cüzdanlara özel isimler
+WALLET_1_NAME=Ana Cüzdan
+WALLET_2_NAME=Yedekleme Cüzdan
+```
+
+### ⚖️ Kontrol ve Eşikler
+```bash
+# Kontrol sıklığı
+CHECK_INTERVAL=300  # 5 dakika
+
+# Bildirim eşikleri
+BALANCE_CHANGE_THRESHOLD=0.05  # 0.05 ETH
+POSITION_CHANGE_THRESHOLD=500   # $500
+```
+
+## 📁 Proje Yapısı
+
+```
+balina2droid/
+├── main.py                    # Ana uygulama ve CLI arayüzü
+├── multi_wallet_tracker.py    # Çoklu cüzdan yönetimi
+├── wallet_tracker.py          # Tekil cüzdan takip işlemleri
+├── notification_system.py     # Bildirim sistemi
+├── config.py                  # Konfigürasyon yönetimi
+├── utils.py                   # Yardımcı fonksiyonlar
+├── test_*.py                  # Test dosyaları
+├── .env.example               # Konfigürasyon şablonu
+├── requirements.txt           # Python bağımlılıkları
+├── install.sh                 # Kurulum scripti
+└── README.md                  # Bu dosya
+```
+
+## 🔧 Test ve Hata Ayıklama
+
+### 📱 Telegram Bağlantısı Testi
+```bash
+python3 test_notification.py
+```
+
+### 🔍 Cüzdan Durumu Kontrolü
+```bash
+python3 debug_positions.py
+```
+
+### 🧪 Çoklu Cüzdan Testleri
+```bash
+python3 test_multi_wallet.py
+```
+
+## ⚠️ Güvenlik Notları
+
+- **🔐 HASSAS BİLGİLER**: API anahtarları ve özel bilgiler asla paylaşmayın
+- **✅ KONFİGÜRASYON GÜVENLİĞİ**: Cüzdan adresleri ve formatları doğrulanır
+- **🚏 API LİMİTLERİ**: Etherscan API kullanım limitlerine dikkat edin
+- **🔒 ŞİFRELİ SAKLAMA**: Hassas bilgiler için güvenli saklama yöntemleri kullanın
+
+## 🤝 Katkıda Bulunma
+
+Katkıda bulunmak isterseniz:
+
+1. Fork yapın
+2. Feature branch oluşturun (`git checkout -b feature/AmazingFeature`)
+3. Commit yapın (`git commit -m 'Add some AmazingFeature'`)
+4. Push yapın (`git push origin feature/AmazingFeature`)
+5. Pull Request açın
+
+## 📄 Lisans
+
+Bu proje [MIT Lisansı](LICENSE) altında lisanslanmıştır.
+
+## 🔗 Faydalı Linkler
+
+- [Etherscan API](https://etherscan.io/apis) - API anahtarı almak için
+- [Hyperliquid](https://hyperliquid.xyz/) - Pozisyon takibi için
+- [Telegram Bot API](https://core.telegram.org/bots) - Bot oluşturma için
+- [Python](https://www.python.org/) - Python indir ve kur
+
+## 📞 Destek
+
+Sorunlaşırsanız veya sorunuz olursa:
+1. [Issues](https://github.com/stvowns/balina2/issues) sayfasını kontrol edin
+2. Yeni issue oluşturun
+3. Toplulukla iletişime geçin
+
+---
+
+<div align="center">
+
+**⭐ Eğer projeyi beğendiyseniz yıldız vermeyi unutmayın!**
+
+Made with ❤️ by [Balina2Droid Team](https://github.com/stvowns)
+
+</div>

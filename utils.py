@@ -19,8 +19,10 @@ def save_transaction_log(tx_data: dict, log_file: str = "transactions.log"):
     try:
         with open(log_file, "a") as f:
             f.write(f"{datetime.now().isoformat()}: {json.dumps(tx_data)}\n")
-    except Exception as e:
+    except (IOError, OSError) as e:
         print(f"Error saving transaction log: {e}")
+    except (TypeError, ValueError) as e:
+        print(f"Error serializing transaction data: {e}")
 
 def format_wei_to_ether(wei_amount: int) -> float:
     """Convert Wei to Ether"""
@@ -37,7 +39,7 @@ def format_timestamp(timestamp: str) -> str:
     try:
         dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M:%S")
-    except:
+    except (ValueError, AttributeError):
         return timestamp
 
 def calculate_price_change(old_price: float, new_price: float) -> float:

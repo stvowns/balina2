@@ -3,13 +3,29 @@ import json
 from datetime import datetime
 import time
 from typing import Dict, List, Optional, Tuple
+from config import ETHERSCAN_API_URL, HYPERLIQUID_API_URL
+
+class WalletTrackerError(Exception):
+    """Wallet tracker related errors"""
+    pass
+
+class APIError(WalletTrackerError):
+    """API related errors"""
+    pass
 
 class WalletTracker:
+    # Constants
+    WEI_TO_ETH_DIVISOR = 10**18
+    DEFAULT_LIMIT = 10
+    SIGNIFICANT_BALANCE_CHANGE = 0.1
+    POSITION_CHANGE_PERCENTAGE = 0.05
+    CHECK_INTERVAL_SECONDS = 600
+
     def __init__(self, wallet_address: str, etherscan_api_key: str):
         self.wallet_address = wallet_address
         self.etherscan_api_key = etherscan_api_key
-        self.base_url = "https://api.etherscan.io/api"
-        self.hyperliquid_url = "https://api.hyperliquid.xyz/info"
+        self.base_url = ETHERSCAN_API_URL
+        self.hyperliquid_url = HYPERLIQUID_API_URL
         self.last_known_balance = None
         self.last_known_positions = None
         
@@ -23,16 +39,20 @@ class WalletTracker:
                 "tag": "latest",
                 "apikey": self.etherscan_api_key
             }
-            response = requests.get(self.base_url, params=params)
+            response = requests.get(self.base_url, params=params, timeout=30)
+            response.raise_for_status()
             data = response.json()
             if data["status"] == "1":
-                return float(data["result"]) / 10**18  # Convert from Wei to ETH
+                return float(data["result"]) / self.WEI_TO_ETH_DIVISOR
             return None
-        except Exception as e:
-            print(f"Error getting ETH balance: {e}")
+        except requests.RequestException as e:
+            print(f"Network error getting ETH balance: {e}")
+            return None
+        except (ValueError, KeyError) as e:
+            print(f"Data parsing error getting ETH balance: {e}")
             return None
     
-    def get_token_transfers(self, limit: int = 10) -> List[Dict]:
+    def get_token_transfers(self, limit: int = DEFAULT_LIMIT) -> List[Dict]:
         """Get recent token transfers"""
         try:
             params = {
@@ -42,16 +62,20 @@ class WalletTracker:
                 "sort": "desc",
                 "apikey": self.etherscan_api_key
             }
-            response = requests.get(self.base_url, params=params)
+            response = requests.get(self.base_url, params=params, timeout=30)
+            response.raise_for_status()
             data = response.json()
             if data["status"] == "1":
                 return data["result"][:limit]
             return []
-        except Exception as e:
-            print(f"Error getting token transfers: {e}")
+        except requests.RequestException as e:
+            print(f"Network error getting token transfers: {e}")
+            return []
+        except (ValueError, KeyError) as e:
+            print(f"Data parsing error getting token transfers: {e}")
             return []
     
-    def get_normal_transactions(self, limit: int = 10) -> List[Dict]:
+    def get_normal_transactions(self, limit: int = DEFAULT_LIMIT) -> List[Dict]:
         """Get recent normal transactions"""
         try:
             params = {
@@ -61,13 +85,17 @@ class WalletTracker:
                 "sort": "desc",
                 "apikey": self.etherscan_api_key
             }
-            response = requests.get(self.base_url, params=params)
+            response = requests.get(self.base_url, params=params, timeout=30)
+            response.raise_for_status()
             data = response.json()
             if data["status"] == "1":
                 return data["result"][:limit]
             return []
-        except Exception as e:
-            print(f"Error getting transactions: {e}")
+        except requests.RequestException as e:
+            print(f"Network error getting transactions: {e}")
+            return []
+        except (ValueError, KeyError) as e:
+            print(f"Data parsing error getting transactions: {e}")
             return []
     
     def check_deposit_withdrawal(self) -> Tuple[bool, List[Dict]]:
@@ -76,39 +104,39 @@ class WalletTracker:
             # Get recent transactions and token transfers
             recent_eth_txs = self.get_normal_transactions(5)
             recent_token_txs = self.get_token_transfers(10)
-            
+
             all_transfers = []
             current_time = int(time.time())
-            
+
             # Check ETH transfers
             for tx in recent_eth_txs:
                 # Check if it's a simple ETH transfer (not contract interaction)
-                if (tx.get("to") == self.wallet_address.lower() or 
+                if (tx.get("to") == self.wallet_address.lower() or
                     tx.get("from") == self.wallet_address.lower()) and \
                    tx.get("isError", "0") == "0" and \
                    float(tx.get("value", 0)) > 0:  # Has ETH value
-                    
+
                     tx_time = int(tx.get("timeStamp", 0))
-                    
-                    # Check if transaction is within last check interval (10 minutes)
-                    if current_time - tx_time <= 600:  # 600 seconds = 10 minutes
+
+                    # Check if transaction is within last check interval
+                    if current_time - tx_time <= self.CHECK_INTERVAL_SECONDS:
                         tx["asset"] = "ETH"
                         all_transfers.append(tx)
-            
+
             # Check token transfers (including BTC and other ERC-20 tokens)
             for tx in recent_token_txs:
                 tx_time = int(tx.get("timeStamp", 0))
-                
-                # Check if transaction is within last check interval (10 minutes)
-                if current_time - tx_time <= 600:  # 600 seconds = 10 minutes
+
+                # Check if transaction is within last check interval
+                if current_time - tx_time <= self.CHECK_INTERVAL_SECONDS:
                     tx["asset"] = tx.get("tokenSymbol", "Unknown")
                     all_transfers.append(tx)
-            
+
             if all_transfers:
                 return True, all_transfers
             return False, []
-            
-        except Exception as e:
+
+        except (ValueError, TypeError, KeyError) as e:
             print(f"Error checking deposits/withdrawals: {e}")
             return False, []
     
@@ -119,13 +147,17 @@ class WalletTracker:
                 "type": "clearinghouseState",
                 "user": self.wallet_address
             }
-            response = requests.post(self.hyperliquid_url, json=payload)
+            response = requests.post(self.hyperliquid_url, json=payload, timeout=30)
+            response.raise_for_status()
             data = response.json()
             if data and "marginSummary" in data:
                 return data
             return None
-        except Exception as e:
-            print(f"Error getting Hyperliquid positions: {e}")
+        except requests.RequestException as e:
+            print(f"Network error getting Hyperliquid positions: {e}")
+            return None
+        except (ValueError, KeyError) as e:
+            print(f"Data parsing error getting Hyperliquid positions: {e}")
             return None
     
     def check_balance_change(self) -> Tuple[bool, float, float]:
@@ -133,17 +165,17 @@ class WalletTracker:
         current_balance = self.get_eth_balance()
         if current_balance is None:
             return False, 0, 0
-        
+
         if self.last_known_balance is None:
             self.last_known_balance = current_balance
             return False, current_balance, 0
-        
+
         change = abs(current_balance - self.last_known_balance)
-        if change > 0.1:  # Significant change threshold
+        if change > self.SIGNIFICANT_BALANCE_CHANGE:  # Significant change threshold
             significant_change = True
         else:
             significant_change = False
-        
+
         self.last_known_balance = current_balance
         return significant_change, current_balance, change
     
@@ -189,7 +221,7 @@ class WalletTracker:
                     change_type = "position_opened"
                     break
                 # Check for significant size change (more than 5% change)
-                elif abs(size - previous_pos_dict[coin]) / abs(previous_pos_dict[coin]) > 0.05:
+                elif abs(size - previous_pos_dict[coin]) / abs(previous_pos_dict[coin]) > self.POSITION_CHANGE_PERCENTAGE:
                     changes_detected = True
                     change_type = "position_changed"
                     break
@@ -211,13 +243,13 @@ class WalletTracker:
         positions = self.get_hyperliquid_positions()
         recent_txs = self.get_normal_transactions(5)
         token_txs = self.get_token_transfers(5)
-        
+
         # Calculate additional statistics
         stats = self.calculate_position_stats(positions) if positions else {}
-        
+
         return {
             "wallet_address": self.wallet_address,
-            "eth_balance": balance,
+            "eth_balance": balance if balance is not None else 0.0,
             "hyperliquid_positions": positions,
             "position_stats": stats,
             "recent_transactions": recent_txs,
@@ -230,43 +262,43 @@ class WalletTracker:
         try:
             margin_summary = positions.get("marginSummary", {})
             asset_positions = positions.get("assetPositions", [])
-            
-            account_value = float(margin_summary.get("accountValue", 0))
-            total_ntl_pos = float(margin_summary.get("totalNtlPos", 0))
-            margin_used = float(margin_summary.get("totalMarginUsed", 0))
-            
+
+            account_value = float(margin_summary.get("accountValue") or 0)
+            total_ntl_pos = float(margin_summary.get("totalNtlPos") or 0)
+            margin_used = float(margin_summary.get("totalMarginUsed") or 0)
+
             # Calculate PnL
             total_unrealized_pnl = 0
             long_value = 0
             short_value = 0
             position_count = 0
             winning_positions = 0
-            
+
             for pos_data in asset_positions:
                 if "position" in pos_data and pos_data["position"]:
                     position = pos_data["position"]
-                    pnl = float(position.get("unrealizedPnl", 0))
-                    position_value = float(position.get("positionValue", 0))
-                    size = float(position.get("szi", 0))
-                    
+                    pnl = float(position.get("unrealizedPnl") or 0)
+                    position_value = float(position.get("positionValue") or 0)
+                    size = float(position.get("szi") or 0)
+
                     if size != 0:  # Active position
                         position_count += 1
                         total_unrealized_pnl += pnl
-                        
+
                         if size > 0:  # Long position
                             long_value += position_value
                         else:  # Short position
                             short_value += abs(position_value)
-                        
+
                         if pnl > 0:
                             winning_positions += 1
-            
+
             # Calculate win rate
             win_rate = (winning_positions / position_count * 100) if position_count > 0 else 0
-            
+
             # Calculate ROE (Return on Equity)
             roe = (total_unrealized_pnl / account_value * 100) if account_value > 0 else 0
-            
+
             return {
                 "account_value": account_value,
                 "total_position_value": total_ntl_pos,
@@ -281,6 +313,6 @@ class WalletTracker:
                 "long_percentage": (long_value / total_ntl_pos * 100) if total_ntl_pos > 0 else 0,
                 "short_percentage": (short_value / total_ntl_pos * 100) if total_ntl_pos > 0 else 0
             }
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, ZeroDivisionError) as e:
             print(f"Error calculating position stats: {e}")
             return {}
