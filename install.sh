@@ -35,12 +35,14 @@ else
 fi
 
 # Gerekli kütüphaneleri yükleme
-echo "📚 Kütüphaneler yükleniyor..."
+echo "📚 Kütüphaneler yükleniyor..."    
 pip install --upgrade pip
 pip install -r requirements.txt
 
 echo "✅ Kurulum tamamlandı!"
 echo ""
 echo "🎉 Kurulum tamamlandı! Başlatmak için:"
+source venv/bin/activate 
 echo "1. nano .env    # .env dosyasını düzenleyin"
-echo "2. python main.py    # Uygulamayı başlatın"
+echo "2. source venv/bin/activate   #  Sanal ortamı aktifleştirin"
+echo "3. python main.py    # Uygulamayı başlatın"
