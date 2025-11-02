@@ -28,7 +28,7 @@ source venv/bin/activate
 # .env dosyasını oluşturma
 if [ ! -f ".env" ]; then
     echo "📝 .env dosyası oluşturuluyor..."
-    cp env.example .env
+    cp .env.example .env
     echo "✅ .env dosyası oluşturuldu."
 else
     echo "✅ .env dosyası zaten mevcut"

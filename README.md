@@ -98,7 +98,7 @@ source venv/bin/activate  # Linux/Mac
 # venv\Scripts\activate     # Windows
 
 # 4. .env dosyasını oluşturun
-cp env.example .env
+cp .env.example .env
 
 # 5. pip'ı güncelleyin ve bağımlılıkları yükleyin
 pip install --upgrade pip
