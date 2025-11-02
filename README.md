@@ -97,11 +97,15 @@ python3 -m venv venv
 source venv/bin/activate  # Linux/Mac
 # venv\Scripts\activate     # Windows
 
-# 4. pip'ı güncelleyin ve bağımlılıkları yükleyin
+# 4. .env dosyasını oluşturun
+cp env.example .env
+
+# 5. pip'ı güncelleyin ve bağımlılıkları yükleyin
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 5. Kurulumu tamamladığınızda kontrol edin
+# 6. Kurulumu tamamladığınızda kontrol edin
+nano .env  # Yapılandırmanızı düzenleyin
 python3 main.py --list
 ```
 

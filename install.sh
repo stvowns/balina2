@@ -25,6 +25,15 @@ fi
 echo "🔄 Sanal ortam aktifleştiriliyor..."
 source venv/bin/activate
 
+# .env dosyasını oluşturma
+if [ ! -f ".env" ]; then
+    echo "📝 .env dosyası oluşturuluyor..."
+    cp env.example .env
+    echo "✅ .env dosyası oluşturuldu."
+else
+    echo "✅ .env dosyası zaten mevcut"
+fi
+
 # Gerekli kütüphaneleri yükleme
 echo "📚 Kütüphaneler yükleniyor..."
 pip install --upgrade pip
@@ -32,7 +41,6 @@ pip install -r requirements.txt
 
 echo "✅ Kurulum tamamlandı!"
 echo ""
-echo "Başlatmak için:"
-echo "1. source venv/bin/activate"
-echo "2. config.py dosyasını düzenleyin"
-echo "3. python main.py"
+echo "🎉 Kurulum tamamlandı! Başlatmak için:"
+echo "1. nano .env    # .env dosyasını düzenleyin"
+echo "2. python main.py    # Uygulamayı başlatın"
