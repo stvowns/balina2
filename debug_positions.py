@@ -10,7 +10,20 @@ from utils import load_config
 def debug_positions():
     # Load configuration
     config = load_config()
-    wallet_address = config["wallet_address"]
+    wallet_address = config.get("wallet_address")
+    if not wallet_address:
+        # Try to get from multi-wallet config
+        wallets = config.get("wallets", {})
+        if wallets:
+            # Get first enabled wallet
+            for wallet_id, wallet_config in wallets.items():
+                if wallet_config.get("enabled", True):
+                    wallet_address = wallet_config["address"]
+                    break
+
+    if not wallet_address:
+        print("❌ No wallet address found in configuration")
+        return
     
     # Get position data
     url = "https://api.hyperliquid.xyz/info"

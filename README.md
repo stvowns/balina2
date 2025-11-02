@@ -119,7 +119,7 @@ python3 main.py --list
 
 ### 🔑 2. Chat ID Öğrenme
 ```bash
-python3 get_chat_id.py
+python3 telegram_utilities.py
 ```
 Bot token'ı girip botunuza mesaj gönderin, chat ID'nizi alacaksınız.
 
@@ -323,7 +323,7 @@ balina2droid/
 
 ### 📱 Telegram Bağlantısı Testi
 ```bash
-python3 test_notification.py
+python3 telegram_utilities.py
 ```
 
 ### 🔍 Cüzdan Durumu Kontrolü
