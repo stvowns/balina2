@@ -152,9 +152,12 @@ def load_secure_config() -> Dict[str, Any]:
         email_sender = os.getenv("EMAIL_SENDER", "")
         email_password = os.getenv("EMAIL_PASSWORD", "")
         email_recipient = os.getenv("EMAIL_RECIPIENT", "")
+        email_enabled = os.getenv("EMAIL_ENABLED", "false").lower() == "true"
 
+        # Email is only enabled if EMAIL_ENABLED=true is explicitly set
+        # This prevents authentication errors when email is configured but not intended to be used
         config["email"] = {
-            "enabled": bool(email_sender and email_password and email_recipient),
+            "enabled": email_enabled and bool(email_sender and email_password and email_recipient),
             "smtp_server": DEFAULT_SMTP_SERVER,
             "smtp_port": DEFAULT_SMTP_PORT,
             "sender_email": email_sender,

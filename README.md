@@ -137,16 +137,28 @@ TELEGRAM_CHAT_ID=CHAT_IDINIZ
 WALLETS_JSON={"main":{"address":"0xCUZDAN1","name":"Ana Cüzdan","enabled":true},"backup":{"address":"0xCUZDAN2","name":"Yedek","enabled":false}}
 ```
 
-### 📧 E-posta Bildirimleri (İsteğe Bağlı)
+### 📧 E-posta Bildirimleri (İsteğe Bağlı - Kapalı)
 
-**Gmail App Password oluşturun:**
-1. Google Account → Security → 2-Step Verification
-2. App passwords → Mail için 16 haneli şifre oluşturun
+**⚠️ ÖNEMLİ:** E-posta bildirimleri **default olarak kapalıdır**.
+Bu, Gmail authentication hatalarını önlemek içindir. Aktifleştirmek için:
 
-**E-posta ayarları:**
+#### 🔒 Gmail App Password Oluşturma
+1. **Google Account** → Security → 2-Step Verification
+2. **App passwords** → Mail için 16 haneli şifre oluşturun
+3. **Bu şifreyi kopyalayın** - Normal Gmail şifrenizi KULLANMAYIN!
+
+#### ⚙️ E-posta Aktifleştirme Adımları
+`.env` dosyasında şu adımları izleyin:
+
+1. **Tüm satırların uncomment'ını kaldırın** (başlarındaki # silin)
+2. **EMAIL_ENABLED=true** yapın
+3. **Bilgilerinizi girin**
+
 ```bash
+# Email Configuration (Optional - Default DISABLED to prevent authentication errors)
+EMAIL_ENABLED=true  # E-postayı aktifleştir
 EMAIL_SENDER=gmail@gmail.com
-EMAIL_PASSWORD=16_HANELI_APP_PASSWORD
+EMAIL_PASSWORD=16_HANELI_APP_PASSWORD  # Gmail App Password kullanın
 EMAIL_RECIPIENT=alerts@example.com
 ```
 
