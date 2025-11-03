@@ -55,6 +55,7 @@ class MultiWalletTracker:
         """Create notification configuration for a specific wallet"""
         notification_config = self.notification_settings.copy()
         notification_config["wallet_address"] = wallet_config["address"]
+        notification_config["wallet_name"] = wallet_config["name"]  # Add wallet name
 
         # Override Telegram chat ID if specified for this wallet
         if wallet_config.get("telegram_chat_id"):

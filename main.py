@@ -163,16 +163,35 @@ def main():
         logger = get_logger(__name__)
         logger.info("\n📱 Configured Wallets:")
         logger.info(f"{'='*60}")
+
+        # Display notification settings summary
+        email_enabled = monitor.config['notification_settings']['email']['enabled']
+        telegram_enabled = monitor.config['notification_settings']['telegram']['enabled']
+        check_interval = monitor.config['check_interval']
+
+        logger.info(f"📧 Email: {'✅ Enabled' if email_enabled else '❌ Disabled'}")
+        logger.info(f"📱 Telegram: {'✅ Enabled' if telegram_enabled else '❌ Disabled'}")
+        logger.info(f"⏰ Check Interval: {check_interval} seconds ({check_interval//60} minutes)")
+        logger.info(f"{'='*60}")
+
         for wallet_id, wallet_config in monitor.multi_tracker.wallets.items():
             status = "✅ Active" if monitor.multi_tracker.is_wallet_enabled(wallet_id) else "❌ Disabled"
             from utils import format_address
+
             logger.info(f"  {status} {wallet_config['name']}")
             logger.info(f"      Address: {format_address(wallet_config['address'])}")
-            logger.info(f"      ID: {wallet_id}")
-            if wallet_config.get("telegram_chat_id"):
-                logger.info(f"      Telegram Chat: {wallet_config['telegram_chat_id']}")
-            if wallet_config.get("email_recipient"):
-                logger.info(f"      Email: {wallet_config['email_recipient']}")
+            logger.info(f"      System ID: {wallet_id} (internal identifier)")
+
+            # Show custom notification settings
+            custom_telegram = wallet_config.get("telegram_chat_id")
+            custom_email = wallet_config.get("email_recipient")
+
+            if custom_telegram or custom_email:
+                logger.info(f"      📨 Custom Notifications:")
+                if custom_telegram:
+                    logger.info(f"        📱 Telegram Chat: {custom_telegram}")
+                if custom_email:
+                    logger.info(f"        📧 Email: {custom_email}")
             logger.info("")
     else:
         monitor.start_monitoring()

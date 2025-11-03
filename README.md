@@ -54,6 +54,7 @@ cp .env.example .env
 python3 get_chat_id.py
 # Bot token'ı girin ve botunuza mesaj gönderin
 # Chat ID'nizi kopyalayın
+# Bazen ilk denemede hata verebilir. Tekrar deneyin.
 ```
 
 ### ⚙️ **6. Konfigürasyon**

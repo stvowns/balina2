@@ -43,6 +43,6 @@ echo "✅ Kurulum tamamlandı!"
 echo ""
 echo "🎉 Kurulum tamamlandı! Başlatmak için:"
 source venv/bin/activate 
-echo "1. nano .env    # .env dosyasını düzenleyin"
-echo "2. source venv/bin/activate   #  Sanal ortamı aktifleştirin"
+echo "1. source venv/bin/activate   #  Sanal ortamı aktifleştirin"
+echo "2. nano .env    # .env dosyasını düzenleyin"
 echo "3. python main.py    # Uygulamayı başlatın"
