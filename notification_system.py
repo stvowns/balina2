@@ -17,6 +17,18 @@ class NotificationSystem:
         self.console_enabled = config.get("console", {}).get("enabled", True)
         self.wallet_address = config.get("wallet_address", "")
         self.wallet_name = config.get("wallet_name", "Unknown Wallet")
+
+        # Emoji configuration for Telegram compatibility
+        self.emoji_style = config.get("emoji_style", "modern")  # "modern" or "classic"
+
+    def get_pnl_emoji(self, pnl: float) -> str:
+        """Get PnL emoji based on configured style"""
+        if self.emoji_style == "classic":
+            # Classic emojis that work better on older systems
+            return "✅" if pnl > 0 else "❌" if pnl < 0 else "➖"
+        else:
+            # Modern colored circle emojis
+            return "✅" if pnl > 0 else "❌" if pnl < 0 else "➖"
     
     def send_notification(self, message: str, title: str = "Wallet Update") -> bool:
         """Send notification through all enabled channels"""
@@ -68,9 +80,9 @@ class NotificationSystem:
                     formatted_lines.append(f"{colors['bold']}{colors['cyan']}{line}{colors['end']}")
                 elif '🔍' in line or 'ACTIVE POSITIONS' in line:
                     formatted_lines.append(f"{colors['bold']}{colors['magenta']}{line}{colors['end']}")
-                elif '🟢' in line:
+                elif '✅' in line:
                     formatted_lines.append(f"{colors['green']}{line}{colors['end']}")
-                elif '🔴' in line:
+                elif '❌' in line:
                     formatted_lines.append(f"{colors['red']}{line}{colors['end']}")
                 elif '💰' in line or 'DEPOSIT' in line or 'WITHDRAWAL' in line:
                     formatted_lines.append(f"{colors['bold']}{colors['yellow']}{line}{colors['end']}")
@@ -200,7 +212,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         # Add individual positions if available
         if asset_positions:
             summary += "\n📈 POSITIONS:\n"
-            for pos in asset_positions[:5]:  # Show top 5 positions
+            for pos in asset_positions:  # Show all positions
                 if "position" in pos and pos["position"]:
                     position = pos["position"]
                     coin = position.get("coin", "Unknown")
@@ -339,7 +351,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         # Add individual positions if available
         if asset_positions:
             summary += "\n🔍 ACTIVE POSITIONS:\n"
-            for pos_data in asset_positions[:5]:  # Show top 5 positions
+            for pos_data in asset_positions:  # Show all positions
                 if "position" in pos_data and pos_data["position"]:
                     position = pos_data["position"]
                     coin = position.get("coin", "Unknown")
@@ -353,7 +365,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                     if size != 0:  # Only show active positions
                         side = "LONG" if size > 0 else "SHORT"
                         size_abs = abs(size)
-                        pnl_emoji = "🟢" if pnl > 0 else "🔴" if pnl < 0 else "⚪"
+                        pnl_emoji = self.get_pnl_emoji(pnl)
                         margin_used = float(position.get("marginUsed") or 0)
 
                         # Calculate current price and other metrics

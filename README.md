@@ -103,13 +103,14 @@ python3 main.py         # Sürekli izleme
 ### 📈 Neler Takip Edilir?
 - **ETH Bakiyesi** - Giden/giden transferler
 - **ERC-20 Token'lar** - Tüm token transferleri (BTC, USDT vb.)
-- **Hyperliquid Pozisyonları** - Açık/kapalı pozisyonlar, PnL, marj kullanımı
+- **Hyperliquid Pozisyonları** - Tüm pozisyonlar (sınırsız), PnL, marj kullanımı
 - **Hesap Değeri** - Toplam portföy değeri ve değişimleri
 
 ### 🔔 Bildirimler Ne Zaman Gelir?
 - 📥 Para yatırma/çekme işlemleri
 - 🚀 Pozisyon açılışı/kapanışı
 - 🔄 Anlamlı bakiye değişiklikleri
+- ✅ Tüm pozisyon değişimleri (sınırsız sayıda)
 
 ## 📋 Detaylı Yapılandırma
 
@@ -220,6 +221,18 @@ python3 get_chat_id.py  # Bot bağlantısını test et
 ```bash
 python3 main.py --check  # Cüzdanları kontrol et
 ```
+
+### 🎨 Emoji Gösterim Sorunu
+**Sorun:** Telegram'da yeşil/kırmızı emojiler görünmüyor
+
+**Çözüm:** Sistem otomatik olarak Telegram uyumlu emojiler kullanır:
+- ✅ Pozitif PnL için
+- ❌ Negatif PnL için
+- ➖ Nöt durumlar için
+
+### 📊 Pozisyon Limiti
+**Önceki durum:** Sadece ilk 5 pozisyon gösteriliyordu
+**Yeni durum:** Tüm pozisyonlar sınırsız olarak gösterilir
 
 ## ⚠️ Güvenlik
 
