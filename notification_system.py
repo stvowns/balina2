@@ -408,7 +408,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                         funding = position.get("cumFunding", {})
                         funding_since_open = float(funding.get("sinceOpen") or 0)
                         funding_change = float(funding.get("sinceChange") or 0)
-                        funding_emoji = "💰" if funding_since_open > 0 else "💸" if funding_since_open < 0 else "⚪"
+                        funding_emoji = "💰"
 
                         summary += f"  {side_emoji} {coin} {side}: {size_abs:,.2f} @ ${entry_price:,.2f} | {status}\n"
                         summary += f"     Current: ${current_price:,.2f} | PnL: ${pnl:,.2f} ({roe:+.2f}%)\n"
