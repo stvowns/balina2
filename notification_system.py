@@ -248,9 +248,9 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                         # Determine position status
                         pnl_float = float(unrealized_pnl)
                         if pnl_float > 0:
-                            status = "⬆️KARDA⬆️"
+                            status = "<font color='green'>⬆️KARDA⬆️</font>"
                         elif pnl_float < 0:
-                            status = "⬇️ZARARDA⬇️"
+                            status = "<font color='red'>⬇️ZARARDA⬇️</font>"
                         else:
                             status = "NÖTR"
 
@@ -393,9 +393,9 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
                         # Determine position status and color
                         if pnl > 0:
-                            status = "⬆️KARDA⬆️"
+                            status = "<font color='green'>⬆️KARDA⬆️</font>"
                         elif pnl < 0:
-                            status = "⬇️ZARARDA⬇️"
+                            status = "<font color='red'>⬇️ZARARDA⬇️</font>"
                         else:
                             status = "NÖTR"
 
