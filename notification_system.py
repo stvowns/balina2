@@ -5,6 +5,14 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from typing import Dict, Optional, List
 from utils import format_address
+from constants import (
+    COLOR_CODES, CONSOLE_LINE_LENGTH, TELEGRAM_TIMEOUT_SECONDS,
+    WEI_TO_ETH_DIVISOR, DEFAULT_TOKEN_DECIMALS, ADDRESS_TRUNCATE_LENGTH,
+    TRANSACTION_HASH_TRUNCATE_LENGTH, POSITION_STATUS_EMOJIS,
+    POSITION_SIDE_EMOJIS, PNL_EMOJIS, FUNDING_EMOJI,
+    HIGHLIGHT_EMOJI, DIRECTION_EMOJIS, HTTP_SUCCESS_CODE,
+    DEFAULT_NUMERIC_VALUE, DEFAULT_STRING_VALUE, PERCENTAGE_MULTIPLIER
+)
 
 class NotificationError(Exception):
     """Notification system related errors"""
@@ -23,12 +31,12 @@ class NotificationSystem:
 
     def get_pnl_emoji(self, pnl: float) -> str:
         """Get PnL emoji based on configured style"""
-        if self.emoji_style == "classic":
-            # Classic emojis that work better on older systems
-            return "✅" if pnl > 0 else "❌" if pnl < 0 else "➖"
+        if pnl > 0:
+            return PNL_EMOJIS['profit']
+        elif pnl < 0:
+            return PNL_EMOJIS['loss']
         else:
-            # Modern colored circle emojis
-            return "✅" if pnl > 0 else "❌" if pnl < 0 else "➖"
+            return PNL_EMOJIS['neutral']
     
     def send_notification(self, message: str, title: str = "Wallet Update") -> bool:
         """Send notification through all enabled channels"""
@@ -52,22 +60,12 @@ class NotificationSystem:
     
     def _send_to_console(self, message: str, title: str):
         """Print notification to console with enhanced formatting"""
-        # Add color codes for better visibility
-        colors = {
-            'red': '\033[91m',
-            'green': '\033[92m',
-            'yellow': '\033[93m',
-            'blue': '\033[94m',
-            'magenta': '\033[95m',
-            'cyan': '\033[96m',
-            'white': '\033[97m',
-            'bold': '\033[1m',
-            'end': '\033[0m'
-        }
+        # Use centralized color codes
+        colors = COLOR_CODES
         
-        print(f"\n{colors['cyan']}{'='*60}{colors['end']}")
+        print(f"\n{colors['cyan']}{'='*CONSOLE_LINE_LENGTH}{colors['end']}")
         print(f"{colors['bold']}{colors['yellow']}🔔 {title} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}{colors['end']}")
-        print(f"{colors['cyan']}{'='*60}{colors['end']}")
+        print(f"{colors['cyan']}{'='*CONSOLE_LINE_LENGTH}{colors['end']}")
         
         # Format message with colors for better readability
         formatted_lines = []
@@ -107,7 +105,7 @@ class NotificationSystem:
                 formatted_lines.append(line)
         
         print('\n'.join(formatted_lines))
-        print(f"{colors['cyan']}{'='*60}{colors['end']}\n")
+        print(f"{colors['cyan']}{'='*CONSOLE_LINE_LENGTH}{colors['end']}\n")
     
     def _send_email(self, message: str, title: str) -> bool:
         """Send email notification"""
@@ -150,8 +148,8 @@ class NotificationSystem:
                 "text": message,
                 "parse_mode": "HTML"
             }
-            response = requests.post(url, json=payload, timeout=30)
-            if response.status_code == 200:
+            response = requests.post(url, json=payload, timeout=TELEGRAM_TIMEOUT_SECONDS)
+            if response.status_code == HTTP_SUCCESS_CODE:
                 print("Telegram notification sent successfully")
                 return True
             else:
@@ -166,7 +164,7 @@ class NotificationSystem:
     
     def format_balance_change(self, old_balance: float, new_balance: float, change: float) -> str:
         """Format balance change notification"""
-        direction = "📈" if change > 0 else "📉"
+        direction = DIRECTION_EMOJIS['up'] if change > 0 else DIRECTION_EMOJIS['down']
         return f"""
 {direction} BALANCE CHANGE DETECTED
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
@@ -243,19 +241,19 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                     if float(size) != 0:
                         # Highlight the changed position
                         is_changed_position = (coin == changed_coin)
-                        highlight_marker = "🔥" if is_changed_position else "  "
+                        highlight_marker = HIGHLIGHT_EMOJI if is_changed_position else "  "
 
                         # Determine position status
                         pnl_float = float(unrealized_pnl)
                         if pnl_float > 0:
-                            status = "  ⬆️ KARDA ⬆️ "
+                            status = POSITION_STATUS_EMOJIS['profit']
                         elif pnl_float < 0:
-                            status = "  ⬇️ ZARARDA ⬇️ "
+                            status = POSITION_STATUS_EMOJIS['loss']
                         else:
-                            status = "  NÖTR "
+                            status = POSITION_STATUS_EMOJIS['neutral']
 
                         # Choose icon based on side (long/short)
-                        side_emoji = "🟢" if float(size) > 0 else "🔴"
+                        side_emoji = POSITION_SIDE_EMOJIS['long'] if float(size) > 0 else POSITION_SIDE_EMOJIS['short']
 
                         summary += f"{highlight_marker} {side_emoji} {coin} {side}: {size} @ ${entry_price} | {status}\n"
                         summary += f"    PnL: ${unrealized_pnl} | Leverage: {leverage}x\n"
@@ -266,7 +264,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     
     def format_transaction_alert(self, tx: Dict) -> str:
         """Format transaction notification"""
-        value_eth = float(tx.get("value", 0)) / 10**18
+        value_eth = float(tx.get("value", 0)) / WEI_TO_ETH_DIVISOR
         direction = "OUT" if tx["from"].lower() == self.wallet_address.lower() else "IN"
 
         return f"""
@@ -293,28 +291,28 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             
             # Calculate value based on asset type
             if asset == "ETH":
-                value = float(tx.get("value", 0)) / 10**18
+                value = float(tx.get("value", 0)) / WEI_TO_ETH_DIVISOR
                 value_str = f"{value:.4f} {asset}"
             else:
                 # For tokens (like BTC), the value is already in the correct decimal format
-                value = float(tx.get("value", 0)) / (10 ** int(tx.get("tokenDecimal", 18)))
+                value = float(tx.get("value", 0)) / (10 ** int(tx.get("tokenDecimal", DEFAULT_TOKEN_DECIMALS)))
                 value_str = f"{value:.6f} {asset}"
             
             # Determine if it's a deposit or withdrawal
             if tx.get("from", "").lower() == wallet_address:
                 tx_type = "WITHDRAWAL"
                 emoji = "📤"
-                recipient = tx.get("to", "Unknown")[:10] + "..." if tx.get("to") else "Unknown"
+                recipient = tx.get("to", "Unknown")[:ADDRESS_TRUNCATE_LENGTH] + "..." if tx.get("to") else DEFAULT_STRING_VALUE
                 summary += f"{emoji} {tx_type}: {value_str}\n"
                 summary += f"   To: {recipient}\n"
             elif tx.get("to", "").lower() == wallet_address:
                 tx_type = "DEPOSIT"
                 emoji = "📥"
-                sender = tx.get("from", "Unknown")[:10] + "..." if tx.get("from") else "Unknown"
+                sender = tx.get("from", "Unknown")[:ADDRESS_TRUNCATE_LENGTH] + "..." if tx.get("from") else DEFAULT_STRING_VALUE
                 summary += f"{emoji} {tx_type}: {value_str}\n"
                 summary += f"   From: {sender}\n"
             
-            summary += f"   Hash: {tx.get('hash', 'Unknown')[:20]}...\n\n"
+            summary += f"   Hash: {tx.get('hash', DEFAULT_STRING_VALUE)[:TRANSACTION_HASH_TRUNCATE_LENGTH]}...\n\n"
         
         return summary
     
@@ -393,22 +391,22 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
                         # Determine position status and color
                         if pnl > 0:
-                            status = "  ⬆️ KARDA ⬆️ "
+                            status = POSITION_STATUS_EMOJIS['profit']
                         elif pnl < 0:
-                            status = "  ⬇️ ZARARDA ⬇️ "
+                            status = POSITION_STATUS_EMOJIS['loss']
                         else:
-                            status = "  NÖTR "
+                            status = POSITION_STATUS_EMOJIS['neutral']
 
                         # Choose icon based on side (long/short) instead of PnL
-                        side_emoji = "🟢" if size > 0 else "🔴"
+                        side_emoji = POSITION_SIDE_EMOJIS['long'] if size > 0 else POSITION_SIDE_EMOJIS['short']
 
                         # Calculate current price and other metrics
                         current_price = abs(position_value / size) if size != 0 else 0
-                        roe = float(position.get("returnOnEquity") or 0) * 100
+                        roe = float(position.get("returnOnEquity") or 0) * PERCENTAGE_MULTIPLIER
                         funding = position.get("cumFunding", {})
                         funding_since_open = float(funding.get("sinceOpen") or 0)
                         funding_change = float(funding.get("sinceChange") or 0)
-                        funding_emoji = "💰"
+                        funding_emoji = FUNDING_EMOJI
 
                         summary += f"  {side_emoji} {coin} {side}: {size_abs:,.2f} @ ${entry_price:,.2f} | {status}\n"
                         summary += f"     Current: ${current_price:,.2f} | PnL: ${pnl:,.2f} ({roe:+.2f}%)\n"
