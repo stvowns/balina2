@@ -184,57 +184,66 @@ class WalletTracker:
         current_positions = self.get_hyperliquid_positions()
         if current_positions is None:
             return False, {}, "position_data_unavailable"
-        
+
         if self.last_known_positions is None:
             self.last_known_positions = current_positions
             return False, current_positions, "initial_setup"
-        
+
         # Extract current and previous positions
         current_asset_positions = current_positions.get("assetPositions", [])
         previous_asset_positions = self.last_known_positions.get("assetPositions", [])
-        
+
         # Create dictionaries of positions by coin for easier comparison
         current_pos_dict = {}
         previous_pos_dict = {}
-        
+
         for pos in current_asset_positions:
             if "position" in pos and pos["position"]:
                 coin = pos["position"].get("coin", "")
                 size = float(pos["position"].get("szi", 0))
                 current_pos_dict[coin] = size
-        
+
         for pos in previous_asset_positions:
             if "position" in pos and pos["position"]:
                 coin = pos["position"].get("coin", "")
                 size = float(pos["position"].get("szi", 0))
                 previous_pos_dict[coin] = size
-        
+
         # Check for position changes
         changes_detected = False
         change_type = "none"
-        
+        changed_coin = None
+
         # Check for new positions opened
         for coin, size in current_pos_dict.items():
             if size != 0:
                 if coin not in previous_pos_dict or previous_pos_dict[coin] == 0:
                     changes_detected = True
                     change_type = "position_opened"
+                    changed_coin = coin
                     break
                 # Check for significant size change (more than 5% change)
                 elif abs(size - previous_pos_dict[coin]) / abs(previous_pos_dict[coin]) > self.POSITION_CHANGE_PERCENTAGE:
                     changes_detected = True
                     change_type = "position_changed"
+                    changed_coin = coin
                     break
-        
+
         # Check for positions closed
         if not changes_detected:
             for coin, size in previous_pos_dict.items():
                 if size != 0 and (coin not in current_pos_dict or current_pos_dict[coin] == 0):
                     changes_detected = True
                     change_type = "position_closed"
+                    changed_coin = coin
                     break
-        
+
         self.last_known_positions = current_positions
+
+        # Add changed coin to positions data for notification formatting
+        if changes_detected and changed_coin:
+            current_positions["_changed_coin"] = changed_coin
+
         return changes_detected, current_positions, change_type
     
     def get_summary(self) -> Dict:

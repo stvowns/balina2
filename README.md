@@ -86,6 +86,8 @@ python3 main.py         # Sürekli izleme
 
 - 🚀 **Çoklu Cüzdan Desteği** - Sınırsız cüzdanı aynı anda izleme
 - 📱 **Cüzdan Bazlı Bildirimler** - Her cüzdan için ayrı bildirim ayarları
+- 🔥 **Pozisyon Vurgulama** - Değişen pozisyonu 🔥 ile işaretleme
+- 🎯 **Hedef Tespit** - Hangi coinde değişiklik olduğunu net belirtme
 - 📊 **Akıllı İzleme** - Sadece önemli olaylar için bildirim
 - 🔔 **Gerçek Zamanlı Bildirimler** - Transfer ve pozisyon değişiklikleri
 - ⚙️ **Esnek Konfigürasyon** - JSON, environment variables, tek cüzdan desteği
@@ -111,6 +113,7 @@ python3 main.py         # Sürekli izleme
 - 🚀 Pozisyon açılışı/kapanışı
 - 🔄 Anlamlı bakiye değişiklikleri
 - ✅ Tüm pozisyon değişimleri (sınırsız sayıda)
+- 🔥 **Değişen varlığı net belirtme** - Hangi coinin değiştiğini gösterme
 
 ## 📋 Detaylı Yapılandırma
 
@@ -233,6 +236,23 @@ python3 main.py --check  # Cüzdanları kontrol et
 ### 📊 Pozisyon Limiti
 **Önceki durum:** Sadece ilk 5 pozisyon gösteriliyordu
 **Yeni durum:** Tüm pozisyonlar sınırsız olarak gösterilir
+
+### 🔥 Pozisyon Vurgulama Özelliği
+**Sorun:** 10 varlık içinde hangisinde değişiklik olduğunu bulamama
+
+**Çözüm:** Sistem değişen pozisyonu net belirtir:
+- **Telegram Başlığı:** `🔄 POSITION CHANGED - ETH`
+- **Telegram Listesi:** `🔥 ETH SHORT: -10 @ $3000` (diğerleri normal)
+- **Konsol Mesajı:** `🔥 POSITION DETECTED: POSITION CHANGED - ETH`
+
+**Örnek Çıktı:**
+```
+🔄 POSITION CHANGED - ETH
+📈 POSITIONS:
+   BTC LONG: 0.5 @ $45000
+🔥 ETH SHORT: -10 @ $3000  <-- Değişen pozisyon
+   SOL LONG: 100 @ $150
+```
 
 ## ⚠️ Güvenlik
 

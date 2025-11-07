@@ -114,6 +114,11 @@ class MultiWalletTracker:
                 # Check position changes
                 positions_changed, positions, change_type = tracker.check_position_changes()
                 if positions_changed:
+                    changed_coin = positions.get("_changed_coin", "Unknown")
+                    print(f"\n🔥 POSITION DETECTED: {change_type.upper()} - {changed_coin}")
+                    print(f"💰 Wallet: {wallet_config['name']} ({wallet_id})")
+                    print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
                     message = notification_system.format_position_change(positions, change_type)
                     notification_system.send_notification(message, f"POSITION {change_type.upper()}")
 
@@ -122,7 +127,8 @@ class MultiWalletTracker:
                         "wallet_id": wallet_id,
                         "wallet_name": wallet_config["name"],
                         "change_type": change_type,
-                        "positions": positions
+                        "positions": positions,
+                        "changed_coin": changed_coin
                     })
 
                     save_transaction_log({

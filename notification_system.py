@@ -92,6 +92,8 @@ class NotificationSystem:
                     formatted_lines.append(f"{colors['bold']}{colors['blue']}{line}{colors['end']}")
                 elif '🔄' in line or 'POSITION CHANGED' in line:
                     formatted_lines.append(f"{colors['bold']}{colors['yellow']}{line}{colors['end']}")
+                elif '🔥' in line:  # Highlighted changed position
+                    formatted_lines.append(f"{colors['bold']}{colors['red']}{line}{colors['end']}")
                 elif '$' in line and ('PnL:' in line or 'Value:' in line):
                     # Highlight monetary values
                     formatted_lines.append(f"{colors['green']}{line}{colors['end']}")
@@ -178,16 +180,17 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """Format position change notification"""
         if not positions or "marginSummary" not in positions:
             return "Position data unavailable"
-        
+
         margin_summary = positions.get("marginSummary", {})
         account_value = margin_summary.get("accountValue", 0)
         total_notion = margin_summary.get("totalNotion", 0)
         unrealized_pnl = margin_summary.get("unrealizedPnl", 0)
         margin_usage = margin_summary.get("marginUsage", 0)
-        
-        # Get individual positions
+
+        # Get individual positions and the changed coin
         asset_positions = positions.get("assetPositions", [])
-        
+        changed_coin = positions.get("_changed_coin", None)
+
         # Choose appropriate emoji and title based on change type
         if change_type == "position_opened":
             emoji = "🚀"
@@ -198,7 +201,11 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         else:
             emoji = "🔄"
             title = "POSITION CHANGED"
-        
+
+        # Add changed coin to title if available
+        if changed_coin:
+            title += f" - {changed_coin}"
+
         summary = f"""
 {emoji} {title}
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
@@ -208,7 +215,7 @@ Unrealized PnL: ${float(unrealized_pnl):,.2f}
 Margin Usage: {float(margin_usage)*100:.2f}%
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
-        
+
         # Add individual positions if available
         if asset_positions:
             summary += "\n📈 POSITIONS:\n"
@@ -223,22 +230,26 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                     leverage = position.get("leverage", {}).get("value", 0)
                     liquidation_price = position.get("liquidationPx", 0)
                     margin_used = position.get("marginUsed", 0)
-                    
+
                     # Determine side (long if size > 0, short if size < 0)
                     side = "LONG" if float(size) > 0 else "SHORT"
-                    
+
                     # Calculate current price (position value / size)
                     try:
                         current_price = abs(float(position_value) / float(size)) if float(size) != 0 else 0
                     except (ValueError, ZeroDivisionError, TypeError):
                         current_price = 0
-                    
+
                     if float(size) != 0:
-                        summary += f"  • {coin} {side}: {size} @ ${entry_price}\n"
+                        # Highlight the changed position
+                        is_changed_position = (coin == changed_coin)
+                        highlight_marker = "🔥" if is_changed_position else "  "
+
+                        summary += f"{highlight_marker} {coin} {side}: {size} @ ${entry_price}\n"
                         summary += f"    PnL: ${unrealized_pnl} | Leverage: {leverage}x\n"
                         summary += f"    Position Value: ${position_value}\n"
                         summary += f"    Liq Price: ${liquidation_price} | Margin Used: ${margin_used}\n\n"
-        
+
         return summary
     
     def format_transaction_alert(self, tx: Dict) -> str:
