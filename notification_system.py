@@ -13,6 +13,7 @@ from constants import (
     HIGHLIGHT_EMOJI, DIRECTION_EMOJIS, HTTP_SUCCESS_CODE,
     DEFAULT_NUMERIC_VALUE, DEFAULT_STRING_VALUE, PERCENTAGE_MULTIPLIER
 )
+from position_formatter import PositionFormatter
 
 class NotificationError(Exception):
     """Notification system related errors"""
@@ -179,32 +180,31 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         if not positions or "marginSummary" not in positions:
             return "Position data unavailable"
 
+        # Extract summary information
         margin_summary = positions.get("marginSummary", {})
+        summary_info = self._format_margin_summary(margin_summary, change_type)
+
+        # Format individual positions
+        changed_coin = positions.get("_changed_coin", None)
+        positions_section = self._format_positions_section(positions, changed_coin, detailed=False)
+
+        return summary_info + positions_section
+
+    def _format_margin_summary(self, margin_summary: Dict, change_type: str) -> str:
+        """Format the margin summary section"""
         account_value = margin_summary.get("accountValue", 0)
         total_notion = margin_summary.get("totalNotion", 0)
         unrealized_pnl = margin_summary.get("unrealizedPnl", 0)
         margin_usage = margin_summary.get("marginUsage", 0)
 
-        # Get individual positions and the changed coin
-        asset_positions = positions.get("assetPositions", [])
-        changed_coin = positions.get("_changed_coin", None)
-
         # Choose appropriate emoji and title based on change type
-        if change_type == "position_opened":
-            emoji = "🚀"
-            title = "POSITION OPENED"
-        elif change_type == "position_closed":
-            emoji = "✅"
-            title = "POSITION CLOSED"
-        else:
-            emoji = "🔄"
-            title = "POSITION CHANGED"
+        emoji, title = self._get_change_type_info(change_type)
 
-        # Add changed coin to title if available
-        if changed_coin:
-            title += f" - {changed_coin}"
+        # Get changed coin if available
+        if "_changed_coin" in margin_summary:
+            title += f" - {margin_summary['_changed_coin']}"
 
-        summary = f"""
+        return f"""
 {emoji} {title}
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${float(account_value):,.2f}
@@ -214,51 +214,27 @@ Margin Usage: {float(margin_usage)*100:.2f}%
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
 
-        # Add individual positions if available
-        if asset_positions:
-            summary += "\n📈 POSITIONS:\n"
-            for pos in asset_positions:  # Show all positions
-                if "position" in pos and pos["position"]:
-                    position = pos["position"]
-                    coin = position.get("coin", "Unknown")
-                    size = position.get("szi", 0)
-                    entry_price = position.get("entryPx", 0)
-                    position_value = position.get("positionValue", 0)
-                    unrealized_pnl = position.get("unrealizedPnl", 0)
-                    leverage = position.get("leverage", {}).get("value", 0)
-                    liquidation_price = position.get("liquidationPx", 0)
-                    margin_used = position.get("marginUsed", 0)
+    def _get_change_type_info(self, change_type: str) -> tuple:
+        """Get emoji and title based on change type"""
+        if change_type == "position_opened":
+            return "🚀", "POSITION OPENED"
+        elif change_type == "position_closed":
+            return "✅", "POSITION CLOSED"
+        else:
+            return "🔄", "POSITION CHANGED"
 
-                    # Determine side (long if size > 0, short if size < 0)
-                    side = "LONG" if float(size) > 0 else "SHORT"
+    def _format_positions_section(self, positions: Dict, changed_coin: str = None, detailed: bool = True) -> str:
+        """Format the positions section"""
+        asset_positions = positions.get("assetPositions", [])
+        if not asset_positions:
+            return ""
 
-                    # Calculate current price (position value / size)
-                    try:
-                        current_price = abs(float(position_value) / float(size)) if float(size) != 0 else 0
-                    except (ValueError, ZeroDivisionError, TypeError):
-                        current_price = 0
-
-                    if float(size) != 0:
-                        # Highlight the changed position
-                        is_changed_position = (coin == changed_coin)
-                        highlight_marker = HIGHLIGHT_EMOJI if is_changed_position else "  "
-
-                        # Determine position status
-                        pnl_float = float(unrealized_pnl)
-                        if pnl_float > 0:
-                            status = POSITION_STATUS_EMOJIS['profit']
-                        elif pnl_float < 0:
-                            status = POSITION_STATUS_EMOJIS['loss']
-                        else:
-                            status = POSITION_STATUS_EMOJIS['neutral']
-
-                        # Choose icon based on side (long/short)
-                        side_emoji = POSITION_SIDE_EMOJIS['long'] if float(size) > 0 else POSITION_SIDE_EMOJIS['short']
-
-                        summary += f"{highlight_marker} {side_emoji} {coin} {side}: {size} @ ${entry_price} | {status}\n"
-                        summary += f"    PnL: ${unrealized_pnl} | Leverage: {leverage}x\n"
-                        summary += f"    Position Value: ${position_value}\n"
-                        summary += f"    Liq Price: ${liquidation_price} | Margin Used: ${margin_used}\n\n"
+        summary = "\n📈 POSITIONS:\n"
+        for pos_data in asset_positions:
+            if "position" in pos_data and pos_data["position"]:
+                position = pos_data["position"]
+                # Use position_detailed for all cases since position_summary doesn't include changed coin logic
+                summary += PositionFormatter.format_position_detailed(position, changed_coin)
 
         return summary
     
@@ -320,45 +296,50 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """Format Hyperliquid position summary with detailed statistics"""
         if not positions or "marginSummary" not in positions:
             return "Position data unavailable"
-        
+
         margin_summary = positions.get("marginSummary", {})
+        asset_positions = positions.get("assetPositions", [])
+
+        # Build summary header
+        header = self._format_summary_header(margin_summary, stats, asset_positions)
+
+        # Add position breakdown if stats available
+        breakdown = self._format_position_breakdown(stats) if stats else ""
+
+        # Add individual positions
+        positions_section = self._format_active_positions(positions)
+
+        return header + breakdown + positions_section
+
+    def _format_summary_header(self, margin_summary: Dict, stats: Dict, asset_positions: list) -> str:
+        """Format the summary header section"""
         account_value = margin_summary.get("accountValue", 0)
         total_notion = margin_summary.get("totalNotion", 0)
         unrealized_pnl = margin_summary.get("unrealizedPnl", 0)
         margin_usage = margin_summary.get("marginUsage", 0)
-        
-        # Get individual positions
-        asset_positions = positions.get("assetPositions", [])
-        
-        # If stats provided, use detailed statistics
+
         if stats:
+            # Detailed format with statistics
             total_pos_value = stats.get("total_position_value", total_notion)
-            long_value = stats.get("long_value", 0)
-            short_value = stats.get("short_value", 0)
             win_rate = stats.get("win_rate", 0)
             leverage = stats.get("leverage", 0)
-            long_pct = stats.get("long_percentage", 0)
-            short_pct = stats.get("short_percentage", 0)
+            position_count = stats.get('position_count', len(asset_positions))
 
-            summary = f"""
+            return f"""
 📊 HYPERLIQUID POSITION SUMMARY
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${float(account_value):,.2f}
 Total Position Value: ${float(total_pos_value):,.2f}
 Unrealized PnL: ${float(unrealized_pnl):,.2f}
 Margin Usage: {float(margin_usage)*100:.2f}%
-Open Positions: {stats.get('position_count', len(asset_positions))}
+Open Positions: {position_count}
 Win Rate: {win_rate:.1f}%
 Leverage: {leverage:.2f}x
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-📈 POSITION BREAKDOWN:
-• Long: ${long_value:,.2f} ({long_pct:.1f}%)
-• Short: ${short_value:,.2f} ({short_pct:.1f}%)
             """
         else:
-            # Fallback to original format if no stats provided
-            summary = f"""
+            # Simple format without statistics
+            return f"""
 📊 HYPERLIQUID POSITION SUMMARY
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${float(account_value):,.2f}
@@ -368,50 +349,32 @@ Margin Usage: {float(margin_usage)*100:.2f}%
 Open Positions: {len(asset_positions)}
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             """
-        
-        # Add individual positions if available
-        if asset_positions:
-            summary += "\n🔍 ACTIVE POSITIONS:\n"
-            for pos_data in asset_positions:  # Show all positions
-                if "position" in pos_data and pos_data["position"]:
-                    position = pos_data["position"]
-                    coin = position.get("coin", "Unknown")
-                    size = float(position.get("szi") or 0)
-                    entry_price = float(position.get("entryPx") or 0)
-                    position_value = float(position.get("positionValue") or 0)
-                    pnl = float(position.get("unrealizedPnl") or 0)
-                    leverage = position.get("leverage", {}).get("value", 0)
-                    liquidation_price = float(position.get("liquidationPx") or 0)
-                    
-                    if size != 0:  # Only show active positions
-                        side = "LONG" if size > 0 else "SHORT"
-                        size_abs = abs(size)
-                        pnl_emoji = self.get_pnl_emoji(pnl)
-                        margin_used = float(position.get("marginUsed") or 0)
 
-                        # Determine position status and color
-                        if pnl > 0:
-                            status = POSITION_STATUS_EMOJIS['profit']
-                        elif pnl < 0:
-                            status = POSITION_STATUS_EMOJIS['loss']
-                        else:
-                            status = POSITION_STATUS_EMOJIS['neutral']
+    def _format_position_breakdown(self, stats: Dict) -> str:
+        """Format the position breakdown section"""
+        long_value = stats.get("long_value", 0)
+        short_value = stats.get("short_value", 0)
+        long_pct = stats.get("long_percentage", 0)
+        short_pct = stats.get("short_percentage", 0)
 
-                        # Choose icon based on side (long/short) instead of PnL
-                        side_emoji = POSITION_SIDE_EMOJIS['long'] if size > 0 else POSITION_SIDE_EMOJIS['short']
+        return f"""
+📈 POSITION BREAKDOWN:
+• Long: ${long_value:,.2f} ({long_pct:.1f}%)
+• Short: ${short_value:,.2f} ({short_pct:.1f}%)
+        """
 
-                        # Calculate current price and other metrics
-                        current_price = abs(position_value / size) if size != 0 else 0
-                        roe = float(position.get("returnOnEquity") or 0) * PERCENTAGE_MULTIPLIER
-                        funding = position.get("cumFunding", {})
-                        funding_since_open = float(funding.get("sinceOpen") or 0)
-                        funding_change = float(funding.get("sinceChange") or 0)
-                        funding_emoji = FUNDING_EMOJI
+    def _format_active_positions(self, positions: Dict) -> str:
+        """Format the active positions section"""
+        asset_positions = positions.get("assetPositions", [])
+        if not asset_positions:
+            return ""
 
-                        summary += f"  {side_emoji} {coin} {side}: {size_abs:,.2f} @ ${entry_price:,.2f} | {status}\n"
-                        summary += f"     Current: ${current_price:,.2f} | PnL: ${pnl:,.2f} ({roe:+.2f}%)\n"
-                        summary += f"     Value: ${position_value:,.2f} | Lev: {leverage}x | ROE: {roe:+.1f}%\n"
-                        summary += f"     Liq Price: ${liquidation_price:,.2f} | Margin: ${margin_used:,.2f}\n"
-                        summary += f"     {funding_emoji} Funding: ${funding_since_open:+,.2f} (${funding_change:+,.2f} recent)\n\n"
-        
+        summary = "\n🔍 ACTIVE POSITIONS:\n"
+        for pos_data in asset_positions:
+            if "position" in pos_data and pos_data["position"]:
+                position = pos_data["position"]
+                formatted_position = PositionFormatter.format_position_detailed(position)
+                if formatted_position:
+                    summary += formatted_position
+
         return summary
