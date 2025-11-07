@@ -245,7 +245,19 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                         is_changed_position = (coin == changed_coin)
                         highlight_marker = "🔥" if is_changed_position else "  "
 
-                        summary += f"{highlight_marker} {coin} {side}: {size} @ ${entry_price}\n"
+                        # Determine position status
+                        pnl_float = float(unrealized_pnl)
+                        if pnl_float > 0:
+                            status = "KARDA"
+                        elif pnl_float < 0:
+                            status = "ZARARDA"
+                        else:
+                            status = "NÖTR"
+
+                        # Choose icon based on side (long/short)
+                        side_emoji = "🟢" if float(size) > 0 else "🔴"
+
+                        summary += f"{highlight_marker} {side_emoji} {coin} {side}: {size} @ ${entry_price} | {status}\n"
                         summary += f"    PnL: ${unrealized_pnl} | Leverage: {leverage}x\n"
                         summary += f"    Position Value: ${position_value}\n"
                         summary += f"    Liq Price: ${liquidation_price} | Margin Used: ${margin_used}\n\n"
@@ -379,6 +391,17 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                         pnl_emoji = self.get_pnl_emoji(pnl)
                         margin_used = float(position.get("marginUsed") or 0)
 
+                        # Determine position status and color
+                        if pnl > 0:
+                            status = "KARDA"
+                        elif pnl < 0:
+                            status = "ZARARDA"
+                        else:
+                            status = "NÖTR"
+
+                        # Choose icon based on side (long/short) instead of PnL
+                        side_emoji = "🟢" if size > 0 else "🔴"
+
                         # Calculate current price and other metrics
                         current_price = abs(position_value / size) if size != 0 else 0
                         roe = float(position.get("returnOnEquity") or 0) * 100
@@ -386,8 +409,8 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                         funding_since_open = float(funding.get("sinceOpen") or 0)
                         funding_change = float(funding.get("sinceChange") or 0)
                         funding_emoji = "💰" if funding_since_open > 0 else "💸" if funding_since_open < 0 else "⚪"
-                        
-                        summary += f"  {pnl_emoji} {coin} {side}: {size_abs:,.2f} @ ${entry_price:,.2f}\n"
+
+                        summary += f"  {side_emoji} {coin} {side}: {size_abs:,.2f} @ ${entry_price:,.2f} | {status}\n"
                         summary += f"     Current: ${current_price:,.2f} | PnL: ${pnl:,.2f} ({roe:+.2f}%)\n"
                         summary += f"     Value: ${position_value:,.2f} | Lev: {leverage}x | ROE: {roe:+.1f}%\n"
                         summary += f"     Liq Price: ${liquidation_price:,.2f} | Margin: ${margin_used:,.2f}\n"
