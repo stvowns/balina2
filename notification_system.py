@@ -248,11 +248,11 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                         # Determine position status
                         pnl_float = float(unrealized_pnl)
                         if pnl_float > 0:
-                            status = " ⬆️ KARDA ⬆️ "
+                            status = "  ⬆️ KARDA ⬆️ "
                         elif pnl_float < 0:
-                            status = " ⬇️ ZARARDA ⬇️ "
+                            status = "  ⬇️ ZARARDA ⬇️ "
                         else:
-                            status = " NÖTR "
+                            status = "  NÖTR "
 
                         # Choose icon based on side (long/short)
                         side_emoji = "🟢" if float(size) > 0 else "🔴"
@@ -393,11 +393,11 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
                         # Determine position status and color
                         if pnl > 0:
-                            status = " ⬆️ KARDA ⬆️ "
+                            status = "  ⬆️ KARDA ⬆️ "
                         elif pnl < 0:
-                            status = " ⬇️ ZARARDA ⬇️ "
+                            status = "  ⬇️ ZARARDA ⬇️ "
                         else:
-                            status = " NÖTR "
+                            status = "  NÖTR "
 
                         # Choose icon based on side (long/short) instead of PnL
                         side_emoji = "🟢" if size > 0 else "🔴"
