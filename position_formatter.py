@@ -15,14 +15,26 @@ class PositionFormatter:
     @staticmethod
     def determine_position_emoji_and_status(pnl: float, size: float) -> Tuple[str, str]:
         """Determine position emoji and status based on PnL and side"""
-        if pnl > 0:
+        # Ensure pnl is numeric for comparison
+        try:
+            pnl_float = float(pnl) if pnl is not None else 0.0
+        except (ValueError, TypeError):
+            pnl_float = 0.0
+
+        # Ensure size is numeric for comparison
+        try:
+            size_float = float(size) if size is not None else 0.0
+        except (ValueError, TypeError):
+            size_float = 0.0
+
+        if pnl_float > 0:
             status = POSITION_STATUS_EMOJIS['profit']
-        elif pnl < 0:
+        elif pnl_float < 0:
             status = POSITION_STATUS_EMOJIS['loss']
         else:
             status = POSITION_STATUS_EMOJIS['neutral']
 
-        side_emoji = POSITION_SIDE_EMOJIS['long'] if size > 0 else POSITION_SIDE_EMOJIS['short']
+        side_emoji = POSITION_SIDE_EMOJIS['long'] if size_float > 0 else POSITION_SIDE_EMOJIS['short']
 
         return side_emoji, status
 
@@ -77,9 +89,15 @@ class PositionFormatter:
         if metrics['size_abs'] == 0:
             return ""  # Skip closed positions
 
-        # Determine emoji and status
+        # Determine emoji and status - ensure safe numeric comparison
+        szi_value = position.get("szi", 0)
+        try:
+            szi_float = float(szi_value) if szi_value is not None else 0.0
+        except (ValueError, TypeError):
+            szi_float = 0.0
+
         side_emoji, status = PositionFormatter.determine_position_emoji_and_status(
-            metrics['pnl'], metrics['size_abs'] if position.get("szi", 0) > 0 else -metrics['size_abs']
+            metrics['pnl'], metrics['size_abs'] if szi_float > 0 else -metrics['size_abs']
         )
 
         # Check if this is the changed position
@@ -109,9 +127,15 @@ class PositionFormatter:
         is_changed_position = (coin == changed_coin)
         highlight_marker = HIGHLIGHT_EMOJI if is_changed_position else "  "
 
-        # Determine emoji and status
+        # Determine emoji and status - ensure safe numeric comparison
+        szi_value = position.get("szi", 0)
+        try:
+            szi_float = float(szi_value) if szi_value is not None else 0.0
+        except (ValueError, TypeError):
+            szi_float = 0.0
+
         side_emoji, status = PositionFormatter.determine_position_emoji_and_status(
-            metrics['pnl'], metrics['size_abs'] if position.get("szi", 0) > 0 else -metrics['size_abs']
+            metrics['pnl'], metrics['size_abs'] if szi_float > 0 else -metrics['size_abs']
         )
 
         # Build detailed position summary

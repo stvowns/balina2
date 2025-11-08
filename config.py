@@ -81,15 +81,15 @@ def load_wallets_config() -> Dict[str, Dict[str, Any]]:
 
     # Fallback to individual wallet environment variables
     if not wallets:
-        i = 1
-        while True:
+        # Check for wallets from WALLET_1 to WALLET_100 to support gaps
+        for i in range(1, 101):
             address_key = f"WALLET_{i}_ADDRESS"
             name_key = f"WALLET_{i}_NAME"
             enabled_key = f"WALLET_{i}_ENABLED"
 
             address = os.getenv(address_key, "")
             if not address:
-                break
+                continue  # Skip if no address, but don't break - allow gaps
 
             if not validate_ethereum_address(address):
                 raise ConfigurationError(f"Invalid Ethereum address in {address_key}: {address}")
@@ -102,7 +102,6 @@ def load_wallets_config() -> Dict[str, Dict[str, Any]]:
                 "telegram_chat_id": os.getenv(f"WALLET_{i}_TELEGRAM_CHAT_ID"),
                 "email_recipient": os.getenv(f"WALLET_{i}_EMAIL_RECIPIENT")
             }
-            i += 1
 
     return wallets
 

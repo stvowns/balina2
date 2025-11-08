@@ -171,7 +171,7 @@ class NotificationSystem:
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Previous Balance: {old_balance:.4f} ETH
 New Balance: {new_balance:.4f} ETH
-Change: {change:+.4f} ETH ({(change/old_balance*100):+.2f}%)
+Change: {change:+.4f} ETH ({(change/float(old_balance or 1)*100):+.2f}%)
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
     
@@ -192,10 +192,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
     def _format_margin_summary(self, margin_summary: Dict, change_type: str) -> str:
         """Format the margin summary section"""
-        account_value = margin_summary.get("accountValue", 0)
-        total_notion = margin_summary.get("totalNotion", 0)
-        unrealized_pnl = margin_summary.get("unrealizedPnl", 0)
-        margin_usage = margin_summary.get("marginUsage", 0)
+        account_value = self._safe_float(margin_summary.get("accountValue", 0))
+        total_notion = self._safe_float(margin_summary.get("totalNotion", 0))
+        unrealized_pnl = self._safe_float(margin_summary.get("unrealizedPnl", 0))
+        margin_usage = self._safe_float(margin_summary.get("marginUsage", 0))
 
         # Choose appropriate emoji and title based on change type
         emoji, title = self._get_change_type_info(change_type)
@@ -207,10 +207,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         return f"""
 {emoji} {title}
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
-Account Value: ${float(account_value):,.2f}
-Total Position Value: ${float(total_notion):,.2f}
-Unrealized PnL: ${float(unrealized_pnl):,.2f}
-Margin Usage: {float(margin_usage)*100:.2f}%
+Account Value: ${account_value:,.2f}
+Total Position Value: ${total_notion:,.2f}
+Unrealized PnL: ${unrealized_pnl:,.2f}
+Margin Usage: {margin_usage*100:.2f}%
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
 
@@ -313,25 +313,37 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
     def _format_summary_header(self, margin_summary: Dict, stats: Dict, asset_positions: list) -> str:
         """Format the summary header section"""
-        account_value = margin_summary.get("accountValue", 0)
-        total_notion = margin_summary.get("totalNotion", 0)
-        unrealized_pnl = margin_summary.get("unrealizedPnl", 0)
-        margin_usage = margin_summary.get("marginUsage", 0)
+        account_value = self._safe_float(margin_summary.get("accountValue", 0))
+        total_notion = self._safe_float(margin_summary.get("totalNotion", 0))
+        unrealized_pnl = self._safe_float(margin_summary.get("unrealizedPnl", 0))
+        margin_usage = self._safe_float(margin_summary.get("marginUsage", 0))
 
         if stats:
             # Detailed format with statistics
-            total_pos_value = stats.get("total_position_value", total_notion)
-            win_rate = stats.get("win_rate", 0)
-            leverage = stats.get("leverage", 0)
+            total_pos_value = self._safe_float(stats.get("total_position_value", total_notion))
+            win_rate = self._safe_float(stats.get("win_rate", 0))
+            leverage = self._safe_float(stats.get("leverage", 0))
             position_count = stats.get('position_count', len(asset_positions))
+
+            # Ensure position_count is an integer - handle all possible types
+            try:
+                if position_count is None or position_count == "":
+                    position_count = len(asset_positions)
+                elif isinstance(position_count, str):
+                    # Handle string representations
+                    position_count = int(float(position_count)) if position_count.replace('.', '').replace('-', '').isdigit() else len(asset_positions)
+                else:
+                    position_count = int(position_count)
+            except (ValueError, TypeError, AttributeError):
+                position_count = len(asset_positions)
 
             return f"""
 📊 HYPERLIQUID POSITION SUMMARY
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
-Account Value: ${float(account_value):,.2f}
-Total Position Value: ${float(total_pos_value):,.2f}
-Unrealized PnL: ${float(unrealized_pnl):,.2f}
-Margin Usage: {float(margin_usage)*100:.2f}%
+Account Value: ${account_value:,.2f}
+Total Position Value: ${total_pos_value:,.2f}
+Unrealized PnL: ${unrealized_pnl:,.2f}
+Margin Usage: {margin_usage*100:.2f}%
 Open Positions: {position_count}
 Win Rate: {win_rate:.1f}%
 Leverage: {leverage:.2f}x
@@ -342,26 +354,39 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             return f"""
 📊 HYPERLIQUID POSITION SUMMARY
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
-Account Value: ${float(account_value):,.2f}
-Total Position Value: ${float(total_notion):,.2f}
-Unrealized PnL: ${float(unrealized_pnl):,.2f}
-Margin Usage: {float(margin_usage)*100:.2f}%
+Account Value: ${account_value:,.2f}
+Total Position Value: ${total_notion:,.2f}
+Unrealized PnL: ${unrealized_pnl:,.2f}
+Margin Usage: {margin_usage*100:.2f}%
 Open Positions: {len(asset_positions)}
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             """
 
     def _format_position_breakdown(self, stats: Dict) -> str:
         """Format the position breakdown section"""
-        long_value = stats.get("long_value", 0)
-        short_value = stats.get("short_value", 0)
-        long_pct = stats.get("long_percentage", 0)
-        short_pct = stats.get("short_percentage", 0)
+        long_value = self._safe_float(stats.get("long_value", 0))
+        short_value = self._safe_float(stats.get("short_value", 0))
+        long_pct = self._safe_float(stats.get("long_percentage", 0))
+        short_pct = self._safe_float(stats.get("short_percentage", 0))
+
+        # Additional validation to ensure we have meaningful data
+        if long_value == 0 and short_value == 0:
+            return ""
 
         return f"""
 📈 POSITION BREAKDOWN:
 • Long: ${long_value:,.2f} ({long_pct:.1f}%)
 • Short: ${short_value:,.2f} ({short_pct:.1f}%)
         """
+    
+    def _safe_float(self, value, default=0.0) -> float:
+        """Safely convert value to float to avoid type errors."""
+        try:
+            if value is None or value == "":
+                return float(default)
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
 
     def _format_active_positions(self, positions: Dict) -> str:
         """Format the active positions section"""

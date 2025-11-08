@@ -92,7 +92,9 @@ class MultiWalletTracker:
                         current_balance,
                         change
                     )
-                    notification_system.send_notification(message, "BALANCE CHANGE")
+                    success = notification_system.send_notification(message, "BALANCE CHANGE")
+                    if not success:
+                        print(f"❌ Failed to send balance change notification for wallet {wallet_id}")
 
                     wallet_results.append({
                         "type": "balance_change",
@@ -120,7 +122,9 @@ class MultiWalletTracker:
                     print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
                     message = notification_system.format_position_change(positions, change_type)
-                    notification_system.send_notification(message, f"POSITION {change_type.upper()}")
+                    success = notification_system.send_notification(message, f"POSITION {change_type.upper()}")
+                    if not success:
+                        print(f"❌ Failed to send position change notification for wallet {wallet_id}")
 
                     wallet_results.append({
                         "type": "position_change",
@@ -142,7 +146,9 @@ class MultiWalletTracker:
                 has_deposit_withdrawal, deposit_txs = tracker.check_deposit_withdrawal()
                 if has_deposit_withdrawal:
                     message = notification_system.format_deposit_withdrawal(deposit_txs)
-                    notification_system.send_notification(message, "DEPOSIT/WITHDRAWAL")
+                    success = notification_system.send_notification(message, "DEPOSIT/WITHDRAWAL")
+                    if not success:
+                        print(f"❌ Failed to send deposit/withdrawal notification for wallet {wallet_id}")
 
                     wallet_results.append({
                         "type": "deposit_withdrawal",
@@ -202,65 +208,132 @@ class MultiWalletTracker:
 
         return summary
 
-    def send_initial_summary(self):
-        """Send initial summary for all wallets"""
+    def _safe_float(self, value, default=0.0) -> float:
+        """Safely convert value to float (for dict fields that might be str/int/None)."""
         try:
-            print("📊 Generating initial multi-wallet summary...")
+            if value is None or value == "":
+                return float(default)
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
 
-            all_summaries = self.get_all_wallets_summary()
+    def _normalize_margin_summary(self, margin_summary: Dict[str, Any]) -> Dict[str, float]:
+        """Normalize numeric fields in marginSummary to floats to avoid type issues."""
+        normalized = {}
+        # Common keys returned by Hyperliquid
+        keys = [
+            "accountValue",
+            "totalNtlPos",
+            "totalNotional",
+            "totalMarginUsed",
+            "unrealizedPnl",
+            "marginUsage",
+        ]
+        for key in keys:
+            if key in margin_summary:
+                normalized[key] = self._safe_float(margin_summary.get(key), 0.0)
+        # Keep other fields as-is
+        for key, val in margin_summary.items():
+            if key not in normalized:
+                # If looks numeric, normalize as well; otherwise keep raw
+                if isinstance(val, (int, float)):
+                    normalized[key] = float(val)
+                else:
+                    try:
+                        normalized[key] = float(val)
+                    except (TypeError, ValueError):
+                        normalized[key] = val
+        return normalized
 
-            # Send individual wallet summaries
-            for wallet_id, summary in all_summaries.items():
-                if "error" in summary:
-                    continue
+    def _normalize_position_stats(self, stats: Dict[str, Any]) -> Dict[str, float]:
+        """Normalize numeric fields in stats to floats to avoid '>' between str and int."""
+        if not isinstance(stats, dict):
+            return {}
+        normalized = {}
+        for k, v in stats.items():
+            if isinstance(v, (int, float)):
+                normalized[k] = float(v)
+            else:
+                try:
+                    normalized[k] = float(v)
+                except (TypeError, ValueError):
+                    # Non-numeric values become 0.0 for safe comparisons
+                    normalized[k] = 0.0
+        return normalized
 
-                tracker = self.trackers[wallet_id]
-                notification_system = self.notification_systems[wallet_id]
-                wallet_config = self.wallets[wallet_id]
+    def send_initial_summary(self):
+        """
+        Send initial summary notifications for all wallets.
 
-                # Basic summary
-                eth_balance = f"{summary['eth_balance']:.4f} ETH" if summary['eth_balance'] else 'N/A'
-                message = f"""
-🚀 WALLET TRACKER STARTED
-Wallet: {wallet_config['name']} ({format_address(summary['wallet_address'])})
-ETH Balance: {eth_balance}
-Start Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        Fixes:
+        - Avoid '>' not supported between instances of 'str' and 'int' by normalizing numeric fields.
+        - Guard against missing/partial Hyperliquid data.
+        - Ensure one walletın hatası tüm süreci bozmasın.
+        """
+        print("📊 Generating initial multi-wallet summary...")
 
-Monitoring active...
-                """
+        for wallet_id, tracker in self.trackers.items():
+            if not self.is_wallet_enabled(wallet_id):
+                continue
 
-                notification_system.send_notification(message, "TRACKER STARTED")
+            notification_system = self.notification_systems[wallet_id]
+            wallet_config = self.wallets[wallet_id]
 
-                # Log the tracker start
-                save_transaction_log({
-                    "wallet_id": wallet_id,
-                    "type": "tracker_started",
-                    "wallet_address": summary['wallet_address'],
-                    "wallet_name": wallet_config['name'],
-                    "eth_balance": eth_balance,
-                    "start_time": datetime.now().isoformat()
-                })
+            try:
+                summary = tracker.get_summary()
 
-                # Send Hyperliquid summary if available
-                if summary['hyperliquid_positions']:
+                # Basic safe fields
+                wallet_name = wallet_config.get("name", f"Wallet {wallet_id}")
+                wallet_addr = summary.get("wallet_address") or wallet_config.get("address", "")
+                eth_balance_val = self._safe_float(summary.get("eth_balance"), 0.0)
+                eth_balance_str = f"{eth_balance_val:.4f} ETH" if eth_balance_val > 0 else "N/A"
+
+                message_lines = [
+                    "🚀 WALLET TRACKER STARTED",
+                    f"Wallet: {wallet_name} ({format_address(wallet_addr)})",
+                    f"ETH Balance: {eth_balance_str}",
+                    f"Start Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                    "",
+                    "Monitoring active..."
+                ]
+
+                # Hyperliquid positions (defensive numeric normalization)
+                hl_positions = summary.get("hyperliquid_positions") or {}
+                hl_stats_raw = summary.get("position_stats") or {}
+
+                if isinstance(hl_positions, dict) and hl_positions.get("marginSummary"):
+                    margin_summary = hl_positions.get("marginSummary") or {}
+                    hl_positions["marginSummary"] = self._normalize_margin_summary(margin_summary)
+                    hl_stats = self._normalize_position_stats(hl_stats_raw)
+
+                    # Build formatted HL summary
                     hl_summary = notification_system.format_hyperliquid_summary(
-                        summary['hyperliquid_positions'],
-                        summary.get('position_stats', {})
+                        hl_positions,
+                        hl_stats if hl_stats else None,
                     )
-                    notification_system.send_notification(hl_summary, "INITIAL POSITIONS")
+                    if hl_summary:
+                        message_lines.append("")
+                        message_lines.append(hl_summary)
 
-                    save_transaction_log({
-                        "wallet_id": wallet_id,
-                        "type": "initial_positions",
-                        "hyperliquid_summary": summary['hyperliquid_positions'],
-                        "position_stats": summary.get('position_stats', {}),
-                        "timestamp": datetime.now().isoformat()
-                    })
+                # Add recent tx count (optional, safe)
+                recent_txs = summary.get("recent_transactions")
+                if isinstance(recent_txs, list) and recent_txs:
+                    message_lines.append(f"Recent Transactions: {len(recent_txs)}")
 
-            # Individual wallet summaries already sent - no need for separate overall summary
+                # Final message (ensure all lines are strings)
+                message = "\n".join(
+                    str(line)
+                    for line in message_lines
+                    if line is not None and str(line).strip() != ""
+                )
 
-        except Exception as e:
-            print(f"❌ Error sending initial summary: {e}")
+                success = notification_system.send_notification(message, "TRACKER STARTED")
+                if not success:
+                    print(f"❌ Failed to send tracker started notification for wallet {wallet_id}")
+
+            except Exception as e:
+                # Log and continue with other wallets instead of aborting all
+                print(f"❌ Error sending initial summary for wallet {wallet_id}: {e}")
 
     def get_wallet_ids(self) -> List[str]:
         """Get list of all wallet IDs"""
