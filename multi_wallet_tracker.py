@@ -375,7 +375,7 @@ class MultiWalletTracker:
 
         try:
             # Get async summaries for all wallets
-            summaries = await self.async_tracker.get_all_wallets_summary_async()
+            summaries = await self.async_tracker.get_all_summaries_async()
 
             for wallet_id, summary in summaries.items():
                 if not self.is_wallet_enabled(wallet_id) or "error" in summary:
@@ -558,7 +558,7 @@ class MultiWalletTracker:
             self.async_tracker = AsyncMultiWalletTracker(self.config)
 
         try:
-            return await self.async_tracker.get_all_wallets_summary_async()
+            return await self.async_tracker.get_all_summaries_async()
         except Exception as e:
             print(f"❌ Error getting async summary: {e}")
             # Fallback to sync mode
