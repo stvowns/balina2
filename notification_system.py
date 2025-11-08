@@ -205,7 +205,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
         # Extract summary information
         margin_summary = positions.get("marginSummary", {})
-        summary_info = self._format_margin_summary(margin_summary, change_type)
+        summary_info = self._format_margin_summary(margin_summary, change_type, positions)
 
         # Format individual positions
         changed_coin = positions.get("_changed_coin", None)
@@ -213,7 +213,7 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
         return summary_info + positions_section
 
-    def _format_margin_summary(self, margin_summary: Dict, change_type: str) -> str:
+    def _format_margin_summary(self, margin_summary: Dict, change_type: str, positions: Dict = None) -> str:
         """Format the margin summary section"""
         account_value = self._safe_float(margin_summary.get("accountValue", 0))
         total_notion = self._safe_float(margin_summary.get("totalNotion", 0))
@@ -224,8 +224,9 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         emoji, title = self._get_change_type_info(change_type)
 
         # Get changed coin if available
-        if "_changed_coin" in margin_summary:
-            title += f" - {margin_summary['_changed_coin']}"
+        changed_coin = positions.get("_changed_coin", None)
+        if changed_coin:
+            title += f" - {changed_coin}"
 
         return f"""
 {emoji} {title}
