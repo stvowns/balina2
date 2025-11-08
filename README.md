@@ -2,9 +2,10 @@
 
 > **5 dakikada kurulan, profesyonel kripto cüzdan takip sistemi** - Telegram bildirimleriyle anında değişimleri izleyin.
 
-[![Python](https://img.shields.io/badge/Python-3.7%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg)](https://core.telegram.org/bots)
+[![Hyperliquid](https://img.shields.io/badge/Hyperliquid-Integrated-purple.svg)](https://hyperliquid.xyz/)
 
 ## ⚡ **Hızlı Başlangıç (5 Dakika)**
 
@@ -20,7 +21,7 @@ chmod +x install.sh
 ./install.sh
 ```
 **Script otomatik olarak:**
-- ✅ Python kontrolü yapar
+- ✅ Python 3.8+ kontrolü yapar
 - ✅ Sanal ortam oluşturur
 - ✅ Gerekli paketleri kurar
 - ✅ `.env.example` dosyasını kopyalar
@@ -67,22 +68,56 @@ TELEGRAM_CHAT_ID=CHAT_IDINIZ
 # Etherscan API
 ETHERSCAN_API_KEY=ETHERSCAN_API_KEY
 
-# Cüzdan bilgileri
+# Çoklu cüzdan desteği - sınırsız sayıda cüzdan ekleyebilirsiniz
 WALLET_1_ADDRESS=0xCUZDAN_ADRESINIZ
 WALLET_1_NAME=Cüzdan Adı
 WALLET_1_ENABLED=true
+
+WALLET_2_ADDRESS=0xDIGER_CUZDAN_ADRESI
+WALLET_2_NAME=İkinci Cüzdan
+WALLET_2_ENABLED=true
+
+# Daha fazla cüzdan eklemek için bu formatı kopyalayın (WALLET_3, WALLET_4, ...)
 ```
 
 ### 🎯 **7. Test ve Başlatma**
 ```bash
 source venv/bin/activate
-python3 main.py --check  # Test çalıştırması
-python3 main.py         # Sürekli izleme
+python3 main.py --list    # Cüzdanları listele
+python3 main.py --check   # Test çalıştırması
+python3 main.py            # Sürekli izleme
 ```
 
 **✅ 5 dakikada çalışır!** 🎉
 
-## ✨ Özellikler
+## ✨ Yeni Özellikler (v2.0)
+
+### 🚀 **Gelişmiş Multi-Wallet Sistemi**
+- ✅ **Sınırsız cüzdan desteği** - Wallet 1, 2, 3, 4, ... 100+ cüzdan
+- ✅ **Boşluklu konfigürasyon** - Wallet 1 ve Wallet 3, Wallet 2 olmadan
+- ✅ **Per-wallet bildirimler** - Her cüzdan için özel Telegram chat ve email
+- ✅ **Cüzdan devre dışı bırakma** - `WALLET_X_ENABLED=false`
+
+### 🔥 **Gelişmiş Bildirim Sistemi**
+- 🔥 **Değişen pozisyon vurgulama** - Hangi coinin değiştiğini net belirtme
+- 📊 **Tüm pozisyonları göster** - Sınırsız pozisyon desteği (önceki 5 limiti kaldırıldı)
+- 🎯 **Hedef tespit** - `🔄 POSITION CHANGED - BTC` formatında bildirimler
+- 💰 **Finansal detaylar** - PnL, marj kullanımı, kaldıraç oranı
+- 📱 **Telegram uyumlu emojiler** - Tüm platformlarda çalışan emojiler
+
+### 🛡️ **Gelişmiş Hata Yönetimi**
+- ✅ **String-int karşılaştırma hataları düzeltildi**
+- ✅ **Güvenli numeric dönüşümleri** - `_safe_float()` fonksiyonları
+- ✅ **API error handling** - Network hatalarında graceful degradation
+- ✅ **Debug ve logging** - Kapsamlı log sistemi
+
+### 📋 **Kullanıcı Dostu Konfigürasyon**
+- 📝 **Yeniden düzenlenmiş .env.example** - Daha temiz ve anlaşılır yapı
+- 📋 **Quick setup instructions** - 5 adımda kolay kurulum
+- 🔧 **Custom notification ayarları** - Per-wallet Telegram ve email
+- ⚙️ **Esnek yapılandırma** - JSON, environment variables, tek cüzdan desteği
+
+## ✨ Tüm Özellikler
 
 - 🚀 **Çoklu Cüzdan Desteği** - Sınırsız cüzdanı aynı anda izleme
 - 📱 **Cüzdan Bazlı Bildirimler** - Her cüzdan için ayrı bildirim ayarları
@@ -94,6 +129,9 @@ python3 main.py         # Sürekli izleme
 - 🛡️ **Güvenli Yapılandırma** - Doğrulanmış adres ve API yönetimi
 - 🧪 **Test Kapsamı** - Kapsamlı birim test desteği
 - 🔄 **Backward Compatibility** - Mevcut yapılandırmalarla tam uyumlu
+- 📧 **Email Bildirimleri** - İsteğe bağlı Gmail desteği
+- 🎨 **Zengin Formatlama** - Renkli konsol çıktısı ve HTML bildirimler
+- 📈 **Performans Optimizasyonu** - Paralel wallet kontrolü ve cache mekanizması
 
 ## 🎯 Bu Proje Ne İşe Yarar?
 
@@ -101,12 +139,15 @@ python3 main.py         # Sürekli izleme
 - **Çoklu Cüzdan Kullanıcıları** - Birden fazla cüzdanı olanlar
 - **Trader'lar** - Hyperliquid pozisyonlarını takip edenler
 - **Yatırımcılar** - Portföy değerlerini izleyenler
+- **Crypto Meraklıları** - Birden fazla cüzdanı tek yerden yönetmek isteyenler
 
 ### 📈 Neler Takip Edilir?
-- **ETH Bakiyesi** - Giden/giden transferler
-- **ERC-20 Token'lar** - Tüm token transferleri (BTC, USDT vb.)
+- **ETH Bakiyesi** - Giden/gelen transferler
+- **ERC-20 Token'lar** - Tüm token transferleri (BTC, USDT, DOGE vb.)
 - **Hyperliquid Pozisyonları** - Tüm pozisyonlar (sınırsız), PnL, marj kullanımı
 - **Hesap Değeri** - Toplam portföy değeri ve değişimleri
+- **Leverage ve Risk** - Kaldıraç oranları ve marj kullanımı
+- **Funding Rates** - Funding ödemeleri ve gelirleri
 
 ### 🔔 Bildirimler Ne Zaman Gelir?
 - 📥 Para yatırma/çekme işlemleri
@@ -114,6 +155,8 @@ python3 main.py         # Sürekli izleme
 - 🔄 Anlamlı bakiye değişiklikleri
 - ✅ Tüm pozisyon değişimleri (sınırsız sayıda)
 - 🔥 **Değişen varlığı net belirtme** - Hangi coinin değiştiğini gösterme
+- 💰 **PnL değişimleri** - Kar/zarar bildirimleri
+- 📊 **Risk seviyesi değişimleri** - Marj kullanımı uyarıları
 
 ## 📋 Detaylı Yapılandırma
 
@@ -126,15 +169,15 @@ WALLET_1_ADDRESS=0xCUZDAN_ADRESINIZ
 WALLET_1_NAME=Ana Cüzdan
 WALLET_1_ENABLED=true
 
-# Cüzdan 2
-WALLET_2_ADDRESS=0xDIGER_CUZDAN
-WALLET_2_NAME=Yedek Cüzdan
-WALLET_2_ENABLED=true
+# Cüzdan 2 (devre dışı)
+# WALLET_2_ADDRESS=0xDIGER_CUZDAN
+# WALLET_2_NAME=Yedek Cüzdan
+# WALLET_2_ENABLED=false
 
-# API ayarları
-ETHERSCAN_API_KEY=API_ANAHTARINIZ
-TELEGRAM_BOT_TOKEN=BOT_TOKENINIZ
-TELEGRAM_CHAT_ID=CHAT_IDINIZ
+# Cüzdan 3 (aktif)
+WALLET_3_ADDRESS=0xUCUNCUZDAN
+WALLET_3_NAME=Trade Cüzdanı
+WALLET_3_ENABLED=true
 ```
 
 #### **Yöntem 2: JSON Formatı (İleri Düzey)**
@@ -142,7 +185,7 @@ TELEGRAM_CHAT_ID=CHAT_IDINIZ
 WALLETS_JSON={"main":{"address":"0xCUZDAN1","name":"Ana Cüzdan","enabled":true},"backup":{"address":"0xCUZDAN2","name":"Yedek","enabled":false}}
 ```
 
-### 📧 E-posta Bildirimleri (İsteğe Bağlı - Kapalı)
+### 📧 E-posta Bildirimleri (İsteğe Bağlı)
 
 **⚠️ ÖNEMLİ:** E-posta bildirimleri **default olarak kapalıdır**.
 Bu, Gmail authentication hatalarını önlemek içindir. Aktifleştirmek için:
@@ -161,10 +204,23 @@ Bu, Gmail authentication hatalarını önlemek içindir. Aktifleştirmek için:
 
 ```bash
 # Email Configuration (Optional - Default DISABLED to prevent authentication errors)
-EMAIL_ENABLED=true  # E-postayı aktifleştir
 EMAIL_SENDER=gmail@gmail.com
 EMAIL_PASSWORD=16_HANELI_APP_PASSWORD  # Gmail App Password kullanın
 EMAIL_RECIPIENT=alerts@example.com
+```
+
+### 🎨 Per-Wallet Özel Bildirimler (Gelişmiş Özellik)
+
+**Farklı Telegram chat'leri veya email alıcıları için:**
+```bash
+# Ana Telegram chat ID
+TELEGRAM_CHAT_ID=MAIN_CHAT_ID
+
+# Wallet 2 için farklı chat
+WALLET_2_TELEGRAM_CHAT_ID=WALLET_2_CHAT_ID
+
+# Wallet 3 için farklı email
+WALLET_3_EMAIL_RECIPIENT=wallet3@example.com
 ```
 
 ### ⚙️ Ayar Seçenekleri
@@ -179,14 +235,15 @@ POSITION_CHANGE_THRESHOLD=1000  # $1000 değişim uyarısı
 ### 📱 **Programı Çalıştırma**
 ```bash
 source venv/bin/activate
-python3 main.py           # Sürekli izleme
-python3 main.py --check   # Tek kontrol yap
-python3 main.py --list    # Cüzdanları listele
+python3 main.py            # Sürekli izleme
+python3 main.py --check    # Tek kontrol yap
+python3 main.py --list     # Cüzdanları listele
 ```
 
 ### 🧪 **Test Etme**
 ```bash
 python3 test_runner.py    # Tüm testleri çalıştır
+python3 -m pytest tests/  # Unit test çalıştır
 ```
 
 ### ⚙️ **Cüzdan Yönetimi**
@@ -204,13 +261,26 @@ WALLET_2_NAME=Yedek Cüzdan
 
 ```
 balina2droid/
-├── main.py              # Ana program
-├── config.py            # Ayarlar
-├── notification_system.py  # Bildirimler
-├── wallet_tracker.py    # Cüzdan takibi
-├── install.sh           # Kurulum scripti
-├── requirements.txt     # Python paketleri
-└── .env.example         # Ayar şablonu
+├── main.py                      # Ana program
+├── config.py                    # Ayarlar ve validasyon
+├── multi_wallet_tracker.py      # Çoklu cüzdan yönetimi
+├── wallet_tracker.py            # Tek cüzdan takibi
+├── notification_system.py       # Bildirim sistemi
+├── position_formatter.py        # Pozisyon formatlama
+├── logger_config.py             # Log yapılandırması
+├── utils.py                     # Yardımcı fonksiyonlar
+├── constants.py                 # Sabit değerler
+├── install.sh                   # Kurulum scripti
+├── requirements.txt             # Python paketleri
+├── .env.example                 # Ayar şablonu
+├── tests/                       # Test dosyaları
+│   ├── test_config.py
+│   ├── test_multi_wallet.py
+│   ├── test_notification.py
+│   └── test_utils.py
+└── docs/                        # Dokümantasyon
+    ├── API.md
+    └── TROUBLESHOOTING.md
 ```
 
 ## 🔧 Hata Çözümü
@@ -223,6 +293,7 @@ python3 get_chat_id.py  # Bot bağlantısını test et
 ### 🔍 Cüzdan Kontrolü
 ```bash
 python3 main.py --check  # Cüzdanları kontrol et
+python3 main.py --list   # Tüm cüzdanları listele
 ```
 
 ### 🎨 Emoji Gösterim Sorunu
@@ -254,11 +325,37 @@ python3 main.py --check  # Cüzdanları kontrol et
    SOL LONG: 100 @ $150
 ```
 
+### 🔄 String-Int Karşılaştırma Hatası
+**Sorun:** `'>' not supported between instances of 'str' and 'int'`
+
+**Çözüm:** Düzeltilmiş versiyonda bu hata artık oluşmaz:
+- ✅ Güvenli numeric dönüşümleri
+- ✅ Type-safe karşılaştırmalar
+- ✅ Robust error handling
+
+### 📱 Boşluklu Wallet Konfigürasyonu
+**Sorun:** Wallet 1 ve Wallet 3 varken Wallet 2 olmadan sistem çalışmıyor
+
+**Çözüm:** Yeni versiyon boşluklu konfigürasyonu destekler:
+- ✅ `WALLET_1` ve `WALLET_3` aktif, `WALLET_2` yok
+- ✅ `WALLET_1`, `WALLET_5`, `WALLET_10` gibi rastgele sıralama
+- ✅ Esnek wallet numaralandırma
+
 ## ⚠️ Güvenlik
 
 - 🔐 **API anahtarlarınızı asla paylaşmayın**
 - ✅ **Cüzdan adresleri doğrulanır**
 - 🚏 **API limitlerine dikkat edin**
+- 📋 **.env dosyasını .gitignore'e ekleyin**
+- 🛡️ **HTTPS API çağrıları kullanın**
+
+## 🤝 Katkıda Bulun
+
+1. **Fork** yapın
+2. **Feature branch** oluşturun (`git checkout -b feature/AmazingFeature`)
+3. **Commit** yapın (`git commit -m 'Add some AmazingFeature'`)
+4. **Push** yapın (`git push origin feature/AmazingFeature`)
+5. **Pull Request** açın
 
 ## 📄 Lisans
 
