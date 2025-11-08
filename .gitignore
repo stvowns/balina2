@@ -82,3 +82,17 @@ api_cache/
 *_backup
 *_old
 *_original
+.serena/
+# Logs
+*.log
+
+# Development tools
+.serena/
+
+# Environment file (contains secrets)
+.env
+
+# IDE
+.vscode/
+.idea/
+
