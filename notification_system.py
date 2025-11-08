@@ -5,13 +5,36 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from typing import Dict, Optional, List
 from utils import format_address
-from constants import (
-    COLOR_CODES, CONSOLE_LINE_LENGTH, TELEGRAM_TIMEOUT_SECONDS,
-    WEI_TO_ETH_DIVISOR, DEFAULT_TOKEN_DECIMALS, ADDRESS_TRUNCATE_LENGTH,
-    TRANSACTION_HASH_TRUNCATE_LENGTH, POSITION_STATUS_EMOJIS,
-    POSITION_SIDE_EMOJIS, PNL_EMOJIS, FUNDING_EMOJI,
-    HIGHLIGHT_EMOJI, DIRECTION_EMOJIS, HTTP_SUCCESS_CODE,
-    DEFAULT_NUMERIC_VALUE, DEFAULT_STRING_VALUE, PERCENTAGE_MULTIPLIER
+from constants import COLOR_CODES
+from common.constants import (
+    # Formatting constants
+    ADDRESS_TRUNCATE_LENGTH,
+    TRANSACTION_HASH_TRUNCATE_LENGTH,
+    DEFAULT_TOKEN_DECIMALS,
+    DEFAULT_NUMERIC_VALUE,
+    DEFAULT_STRING_VALUE,
+    PERCENTAGE_MULTIPLIER,
+
+    # Position status mappings
+    POSITION_STATUS_EMOJIS,
+    POSITION_SIDE_EMOJIS,
+    PNL_EMOJIS,
+    DIRECTION_EMOJIS,
+    FUNDING_EMOJI,
+    HIGHLIGHT_EMOJI,
+
+    # Display formatting
+    CONSOLE_LINE_LENGTH,
+
+    # HTTP status codes
+    HTTP_SUCCESS_CODE,
+
+    # Ethereum constants
+    WEI_TO_ETH_DIVISOR,
+
+    # Timeouts and limits
+    TELEGRAM_MESSAGE_MAX_LENGTH,
+    DEFAULT_TIMEOUT_SECONDS
 )
 from position_formatter import PositionFormatter
 
@@ -149,7 +172,7 @@ class NotificationSystem:
                 "text": message,
                 "parse_mode": "HTML"
             }
-            response = requests.post(url, json=payload, timeout=TELEGRAM_TIMEOUT_SECONDS)
+            response = requests.post(url, json=payload, timeout=DEFAULT_TIMEOUT_SECONDS)
             if response.status_code == HTTP_SUCCESS_CODE:
                 print("Telegram notification sent successfully")
                 return True
@@ -220,6 +243,8 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             return "🚀", "POSITION OPENED"
         elif change_type == "position_closed":
             return "✅", "POSITION CLOSED"
+        elif change_type == "position_summary":
+            return "📊", "POSITION SUMMARY"
         else:
             return "🔄", "POSITION CHANGED"
 

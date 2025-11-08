@@ -5,6 +5,7 @@ Monitors multiple Ethereum wallets and Hyperliquid positions for changes
 """
 
 import time
+import os
 from datetime import datetime
 import schedule
 from multi_wallet_tracker import MultiWalletTracker
@@ -28,7 +29,10 @@ class CryptoWalletMonitor:
         self.logger = get_logger(__name__)
 
         self.config = load_config()
-        self.multi_tracker = MultiWalletTracker(self.config)
+
+        # Check if async mode is enabled via environment variable
+        use_async = os.getenv("USE_ASYNC_MODE", "true").lower() == "true"
+        self.multi_tracker = MultiWalletTracker(self.config, use_async=use_async)
         self.check_interval = self.config["check_interval"]
 
         wallet_count = len(self.multi_tracker.trackers)

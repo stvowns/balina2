@@ -3,23 +3,36 @@ import re
 from dotenv import load_dotenv
 from typing import Dict, Any
 
-# Constants
-SECONDS_PER_MINUTE = 60
-MINUTES_PER_HOUR = 60
-CHECK_INTERVAL_MINUTES = 10
-WALLET_ADDRESS_LENGTH = 42
-ETH_ADDRESS_PREFIX = "0x"
+# Import centralized constants
+from common.constants import (
+    # Time constants
+    SECONDS_PER_MINUTE,
+    MINUTES_PER_HOUR,
+    CHECK_INTERVAL_MINUTES,
+    DEFAULT_CHECK_INTERVAL,
 
-# API URLs
-HYPERLIQUID_API_URL = "https://api.hyperliquid.xyz/info"
-ETHERSCAN_API_URL = "https://api.etherscan.io/api"
+    # Ethereum constants
+    WALLET_ADDRESS_LENGTH,
+    ETH_ADDRESS_PREFIX,
+    WEI_TO_ETH_DIVISOR,
 
-# Default values
-DEFAULT_CHECK_INTERVAL = CHECK_INTERVAL_MINUTES * SECONDS_PER_MINUTE  # 10 minutes
-DEFAULT_BALANCE_CHANGE_THRESHOLD = 0.1  # ETH
-DEFAULT_POSITION_CHANGE_THRESHOLD = 1000  # USD
-DEFAULT_SMTP_SERVER = "smtp.gmail.com"
-DEFAULT_SMTP_PORT = 587
+    # API URLs
+    HYPERLIQUID_API_URL,
+    ETHERSCAN_API_URL,
+
+    # Default values
+    DEFAULT_BALANCE_CHANGE_THRESHOLD,
+    DEFAULT_POSITION_CHANGE_THRESHOLD,
+    DEFAULT_SMTP_SERVER,
+    DEFAULT_SMTP_PORT,
+
+    # Configuration
+    CONFIG_FILE,
+    ENV_FILE,
+
+    # Validation patterns
+    ETH_ADDRESS_PATTERN
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,16 +42,11 @@ class ConfigurationError(Exception):
     pass
 
 def validate_ethereum_address(address: str) -> bool:
-    """Validate Ethereum address format"""
+    """Validate Ethereum address format using centralized pattern"""
     if not address:
         return False
-    if not address.startswith(ETH_ADDRESS_PREFIX):
-        return False
-    if len(address) != WALLET_ADDRESS_LENGTH:
-        return False
-    # Check if it contains only valid hex characters after 0x
-    hex_part = address[2:]
-    return bool(re.match(r'^[0-9a-fA-F]+$', hex_part))
+    # Use the centralized validation pattern
+    return bool(re.match(ETH_ADDRESS_PATTERN, address))
 
 def validate_required_env_var(key: str, value: str, allow_default: bool = False) -> str:
     """Validate required environment variable"""
@@ -199,12 +207,12 @@ if "wallets" in CONFIG and CONFIG["wallets"]:
 else:
     WALLET_ADDRESS = ""
 
+# Export configuration variables for backward compatibility
 ETHERSCAN_API_KEY = CONFIG["etherscan_api_key"]
 CHECK_INTERVAL = CONFIG["check_interval"]
 BALANCE_CHANGE_THRESHOLD = CONFIG["balance_change_threshold"]
 POSITION_CHANGE_THRESHOLD = CONFIG["position_change_threshold"]
 NOTIFICATION_SETTINGS = CONFIG["notification_settings"]
-HYPERLIQUID_API_URL = HYPERLIQUID_API_URL
 TELEGRAM_BOT_TOKEN = CONFIG["telegram"]["bot_token"]
 TELEGRAM_CHAT_ID = CONFIG["telegram"]["chat_id"]
 

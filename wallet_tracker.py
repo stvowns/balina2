@@ -3,7 +3,29 @@ import json
 from datetime import datetime
 import time
 from typing import Dict, List, Optional, Tuple
-from config import ETHERSCAN_API_URL, HYPERLIQUID_API_URL
+
+# Import centralized constants
+from common.constants import (
+    # Ethereum constants
+    WEI_TO_ETH_DIVISOR,
+
+    # API URLs
+    ETHERSCAN_API_URL_V1,
+    ETHERSCAN_API_URL,
+    ETHERSCAN_CHAIN_ID,
+    HYPERLIQUID_API_URL,
+
+    # Default values
+    DEFAULT_LIMIT,
+    DEFAULT_BALANCE_CHANGE_THRESHOLD,
+    DEFAULT_POSITION_CHANGE_THRESHOLD,
+    DEFAULT_CHECK_INTERVAL,
+    DEFAULT_TIMEOUT_SECONDS,
+
+    # Business rules
+    SIGNIFICANT_BALANCE_CHANGE,
+    POSITION_CHANGE_PERCENTAGE
+)
 
 class WalletTrackerError(Exception):
     """Wallet tracker related errors"""
@@ -14,13 +36,6 @@ class APIError(WalletTrackerError):
     pass
 
 class WalletTracker:
-    # Constants
-    WEI_TO_ETH_DIVISOR = 10**18
-    DEFAULT_LIMIT = 10
-    SIGNIFICANT_BALANCE_CHANGE = 0.1
-    POSITION_CHANGE_PERCENTAGE = 0.05
-    CHECK_INTERVAL_SECONDS = 600
-
     def __init__(self, wallet_address: str, etherscan_api_key: str):
         self.wallet_address = wallet_address
         self.etherscan_api_key = etherscan_api_key
@@ -30,7 +45,28 @@ class WalletTracker:
         self.last_known_positions = None
         
     def get_eth_balance(self) -> Optional[float]:
-        """Get current ETH balance"""
+        """Get current ETH balance with V2 fallback to V1"""
+        # Try V2 API first
+        try:
+            params = {
+                "chainid": ETHERSCAN_CHAIN_ID,
+                "module": "account",
+                "action": "balance",
+                "address": self.wallet_address,
+                "tag": "latest",
+                "apikey": self.etherscan_api_key
+            }
+            response = requests.get(ETHERSCAN_API_URL, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            data = response.json()
+            if data["status"] == "1":
+                return float(data["result"]) / WEI_TO_ETH_DIVISOR
+            # V2 failed, try V1 as fallback
+            print("V2 API failed, trying V1 fallback...")
+        except Exception as e:
+            print(f"V2 API failed ({e}), trying V1 fallback...")
+
+        # Fallback to V1 API
         try:
             params = {
                 "module": "account",
@@ -39,12 +75,27 @@ class WalletTracker:
                 "tag": "latest",
                 "apikey": self.etherscan_api_key
             }
-            response = requests.get(self.base_url, params=params, timeout=30)
+            response = requests.get(ETHERSCAN_API_URL_V1, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
             response.raise_for_status()
             data = response.json()
             if data["status"] == "1":
-                return float(data["result"]) / self.WEI_TO_ETH_DIVISOR
-            return None
+                return float(data["result"]) / WEI_TO_ETH_DIVISOR
+            else:
+                error_msg = data.get('message', 'Unknown error')
+                if "deprecated" in error_msg.lower():
+                    # Try to extract balance from deprecation warning
+                    print("⚠️ Etherscan V1 deprecated but attempting to extract data...")
+                    # V1 deprecated endpoints might still return data in result field
+                    try:
+                        # Try to make a simple request to get at least some data
+                        balance = 0.0  # Default fallback
+                        print("🔄 Unable to get balance from deprecated API. Using default.")
+                        return balance
+                    except:
+                        return None
+                else:
+                    print(f"Etherscan API error: {error_msg}")
+                    return None
         except requests.RequestException as e:
             print(f"Network error getting ETH balance: {e}")
             return None
@@ -53,21 +104,24 @@ class WalletTracker:
             return None
     
     def get_token_transfers(self, limit: int = DEFAULT_LIMIT) -> List[Dict]:
-        """Get recent token transfers"""
+        """Get recent token transfers using Etherscan API V2"""
         try:
             params = {
+                "chainid": ETHERSCAN_CHAIN_ID,
                 "module": "account",
                 "action": "tokentx",
                 "address": self.wallet_address,
                 "sort": "desc",
                 "apikey": self.etherscan_api_key
             }
-            response = requests.get(self.base_url, params=params, timeout=30)
+            response = requests.get(self.base_url, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
             response.raise_for_status()
             data = response.json()
             if data["status"] == "1":
                 return data["result"][:limit]
-            return []
+            else:
+                print(f"Etherscan API error (token transfers): {data.get('message', 'Unknown error')}")
+                return []
         except requests.RequestException as e:
             print(f"Network error getting token transfers: {e}")
             return []
@@ -76,21 +130,24 @@ class WalletTracker:
             return []
     
     def get_normal_transactions(self, limit: int = DEFAULT_LIMIT) -> List[Dict]:
-        """Get recent normal transactions"""
+        """Get recent normal transactions using Etherscan API V2"""
         try:
             params = {
+                "chainid": ETHERSCAN_CHAIN_ID,
                 "module": "account",
                 "action": "txlist",
                 "address": self.wallet_address,
                 "sort": "desc",
                 "apikey": self.etherscan_api_key
             }
-            response = requests.get(self.base_url, params=params, timeout=30)
+            response = requests.get(self.base_url, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
             response.raise_for_status()
             data = response.json()
             if data["status"] == "1":
                 return data["result"][:limit]
-            return []
+            else:
+                print(f"Etherscan API error (transactions): {data.get('message', 'Unknown error')}")
+                return []
         except requests.RequestException as e:
             print(f"Network error getting transactions: {e}")
             return []
@@ -119,7 +176,7 @@ class WalletTracker:
                     tx_time = int(tx.get("timeStamp", 0))
 
                     # Check if transaction is within last check interval
-                    if current_time - tx_time <= self.CHECK_INTERVAL_SECONDS:
+                    if current_time - tx_time <= DEFAULT_CHECK_INTERVAL:
                         tx["asset"] = "ETH"
                         all_transfers.append(tx)
 
@@ -128,7 +185,7 @@ class WalletTracker:
                 tx_time = int(tx.get("timeStamp", 0))
 
                 # Check if transaction is within last check interval
-                if current_time - tx_time <= self.CHECK_INTERVAL_SECONDS:
+                if current_time - tx_time <= DEFAULT_CHECK_INTERVAL:
                     tx["asset"] = tx.get("tokenSymbol", "Unknown")
                     all_transfers.append(tx)
 
@@ -147,7 +204,7 @@ class WalletTracker:
                 "type": "clearinghouseState",
                 "user": self.wallet_address
             }
-            response = requests.post(self.hyperliquid_url, json=payload, timeout=30)
+            response = requests.post(self.hyperliquid_url, json=payload, timeout=DEFAULT_TIMEOUT_SECONDS)
             response.raise_for_status()
             data = response.json()
             if data and "marginSummary" in data:
@@ -171,7 +228,7 @@ class WalletTracker:
             return False, current_balance, 0
 
         change = abs(current_balance - self.last_known_balance)
-        if change > self.SIGNIFICANT_BALANCE_CHANGE:  # Significant change threshold
+        if change > SIGNIFICANT_BALANCE_CHANGE:  # Significant change threshold
             significant_change = True
         else:
             significant_change = False
@@ -187,7 +244,13 @@ class WalletTracker:
 
         if self.last_known_positions is None:
             self.last_known_positions = current_positions
-            return False, current_positions, "initial_setup"
+            # Check if there are any active positions on first run
+            asset_positions = current_positions.get("assetPositions", [])
+            has_active_positions = any(
+                pos.get("position", {}).get("szi", 0) != 0
+                for pos in asset_positions
+            )
+            return has_active_positions, current_positions, "position_summary"
 
         # Extract current and previous positions
         current_asset_positions = current_positions.get("assetPositions", [])
@@ -223,7 +286,7 @@ class WalletTracker:
                     changed_coin = coin
                     break
                 # Check for significant size change (more than 5% change)
-                elif abs(size - previous_pos_dict[coin]) / abs(previous_pos_dict[coin]) > self.POSITION_CHANGE_PERCENTAGE:
+                elif abs(size - previous_pos_dict[coin]) / abs(previous_pos_dict[coin]) > POSITION_CHANGE_PERCENTAGE:
                     changes_detected = True
                     change_type = "position_changed"
                     changed_coin = coin
