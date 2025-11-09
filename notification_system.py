@@ -341,8 +341,11 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """Format the summary header section"""
         account_value = self._safe_float(margin_summary.get("accountValue", 0))
 
-        # Calculate total position value from individual positions if totalNotion is zero
-        total_notion = self._safe_float(margin_summary.get("totalNotion", 0))
+        # API'dan gelen doğru alanları kullan
+        # totalNotion yerine totalNtlPos kullanılıyor
+        total_notion = self._safe_float(margin_summary.get("totalNtlPos", 0))
+
+        # Eğer totalNtlPos 0 ise individual pozisyonlardan hesapla
         if total_notion == 0 and asset_positions:
             total_notion = sum(
                 self._safe_float(pos.get("positionValue", 0))
@@ -350,8 +353,19 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 if self._safe_float(pos.get("szi", 0)) != 0
             )
 
+        # Unrealized PnL - individual pozisyonlardan topla
+        # API'da toplam unrealizedPnl alanı yok veya farklı isimde
         unrealized_pnl = self._safe_float(margin_summary.get("unrealizedPnl", 0))
-        margin_usage = self._safe_float(margin_summary.get("marginUsage", 0))
+        if unrealized_pnl == 0 and asset_positions:
+            unrealized_pnl = sum(
+                self._safe_float(pos.get("position", {}).get("unrealizedPnl", 0))
+                for pos in asset_positions
+                if "position" in pos and pos.get("position", {}).get("szi", 0) != 0
+            )
+
+        # Margin Usage - totalMarginUsed / accountValue oranı
+        total_margin_used = self._safe_float(margin_summary.get("totalMarginUsed", 0))
+        margin_usage = total_margin_used / account_value if account_value > 0 else 0
 
         if stats:
             # Detailed format with statistics
