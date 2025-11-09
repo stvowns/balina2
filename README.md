@@ -1,4 +1,4 @@
-# 🐋 Balina2Droid v2.1 - Enterprise-Grade Çoklu Cüzdan Kripto Takip Sistemi
+# 🐋 Balina2Droid v2.1.1 - Enterprise-Grade Çoklu Cüzdan Kripto Takip Sistemi
 
 > **5 dakikada kurulan, enterprise-grade kripto cüzdan takip sistemi** - Circuit Breaker, Async Processing ve Telegram bildirimleriyle anında değişimleri izleyin.
 
@@ -240,6 +240,15 @@ balina2droid/
 - ✅ Type-safe karşılaştırmalar
 - ✅ Robust error handling
 
+### 🔢 **Pozisyon Değeri $0 Gösteriyor**
+**Sorun:** Total Position Value ve Unrealized PnL $0.00 görünüyor
+
+**Çözüm:** v2.1'de düzeltilmiş Hyperliquid API alan eşleşmeleri:
+- ✅ `totalNotion` → `totalNtlPos` (doğru API alanı)
+- ✅ `unrealizedPnl` → individual pozisyonlardan toplanıyor
+- ✅ `marginUsage` → `totalMarginUsed / accountValue` oranı
+- ✅ Artık tüm değerler doğru gösteriliyor: Account Value, Total Position, PnL, Margin %
+
 ## ⚠️ **Güvenlik**
 
 - 🔐 **API anahtarlarınızı asla paylaşmayın**
@@ -263,6 +272,7 @@ balina2droid/
 - 🔄 **Exponential Backoff Retry** - Akıllı yeniden deneme
 - 🚨 **API Fallback** - V1/V2 Etherscan API otomatik geçiş
 - ⏱️ **8x Performance Boost** - Async concurrent processing
+- 🔧 **Hyperliquid API Fix** - Pozisyon değerleri ve PnL hesaplama düzeltmeleri
 
 ### 🤔 **Değerlendirilen Özellikler**
 - **Caching System** - %70-80 API call reduction, cost savings
