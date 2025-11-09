@@ -288,15 +288,8 @@ class MultiWalletTracker:
 
         if self.use_async:
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If already in async context, create new loop
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, self._send_initial_summary_async())
-                        future.result()
-                else:
-                    asyncio.run(self._send_initial_summary_async())
+                # Use asyncio.run() which handles event loop creation properly
+                asyncio.run(self._send_initial_summary_async())
             except Exception as e:
                 print(f"❌ Error in async initial summary, falling back to sync: {e}")
                 self._send_initial_summary_sync()
@@ -474,16 +467,8 @@ class MultiWalletTracker:
     def _check_all_wallets_async(self) -> Dict[str, List[Dict]]:
         """Check all enabled wallets for changes (asynchronous implementation)"""
         try:
-            # Run async function in event loop
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If already in async context, create new loop
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self._run_async_checks())
-                    return future.result()
-            else:
-                return asyncio.run(self._run_async_checks())
+            # Use asyncio.run() which handles event loop creation properly
+            return asyncio.run(self._run_async_checks())
         except Exception as e:
             print(f"❌ Error in async wallet checks: {e}")
             # Fallback to sync mode
