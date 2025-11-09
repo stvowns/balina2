@@ -202,46 +202,68 @@ class WalletTracker:
         }
     
     def calculate_position_stats(self, positions: Dict) -> Dict:
-        """Calculate detailed position statistics"""
+        """
+        Hyperliquid pozisyon istatistiklerini hesaplar.
+
+        Amaç:
+        - Win rate ve leverage gibi alanların 0 dönmemesi için
+          gerçek aktif pozisyonları baz alarak güvenli hesap yapmak.
+        """
         try:
-            margin_summary = positions.get("marginSummary", {})
-            asset_positions = positions.get("assetPositions", [])
+            margin_summary = positions.get("marginSummary", {}) or {}
+            asset_positions = positions.get("assetPositions", []) or []
 
-            account_value = float(margin_summary.get("accountValue") or 0)
-            total_ntl_pos = float(margin_summary.get("totalNtlPos") or 0)
-            margin_used = float(margin_summary.get("totalMarginUsed") or 0)
+            def _f(v, default=0.0):
+                try:
+                    if v is None or v == "":
+                        return float(default)
+                    return float(v)
+                except (TypeError, ValueError):
+                    return float(default)
 
-            # Calculate PnL
-            total_unrealized_pnl = 0
-            long_value = 0
-            short_value = 0
+            account_value = _f(margin_summary.get("accountValue"), 0.0)
+            total_ntl_pos = _f(margin_summary.get("totalNtlPos", margin_summary.get("totalNotion", 0.0)), 0.0)
+
+            total_unrealized_pnl = 0.0
+            long_value = 0.0
+            short_value = 0.0
             position_count = 0
             winning_positions = 0
 
             for pos_data in asset_positions:
-                if "position" in pos_data and pos_data["position"]:
-                    position = pos_data["position"]
-                    pnl = float(position.get("unrealizedPnl") or 0)
-                    position_value = float(position.get("positionValue") or 0)
-                    size = float(position.get("szi") or 0)
+                position = pos_data.get("position") or {}
+                size = _f(position.get("szi"), 0.0)
+                if size == 0:
+                    continue  # sadece aktif pozisyonlar
 
-                    if size != 0:  # Active position
-                        position_count += 1
-                        total_unrealized_pnl += pnl
+                pnl = _f(position.get("unrealizedPnl"), 0.0)
+                position_value = _f(position.get("positionValue"), 0.0)
 
-                        if size > 0:  # Long position
-                            long_value += position_value
-                        else:  # Short position
-                            short_value += abs(position_value)
+                position_count += 1
+                total_unrealized_pnl += pnl
 
-                        if pnl > 0:
-                            winning_positions += 1
+                if size > 0:
+                    long_value += position_value
+                else:
+                    short_value += abs(position_value)
 
-            # Calculate win rate
-            win_rate = (winning_positions / position_count * 100) if position_count > 0 else 0
+                if pnl > 0:
+                    winning_positions += 1
 
-            # Calculate ROE (Return on Equity)
-            roe = (total_unrealized_pnl / account_value * 100) if account_value > 0 else 0
+            # Eğer API'den total_ntl_pos 0 geldiyse ama hesaplanmış aktif pozisyon varsa, düzelt
+            if total_ntl_pos == 0 and (long_value > 0 or short_value > 0):
+                total_ntl_pos = long_value + short_value
+
+            # Win rate
+            win_rate = (winning_positions / position_count * 100.0) if position_count > 0 else 0.0
+
+            # ROE ve leverage
+            roe = (total_unrealized_pnl / account_value * 100.0) if account_value > 0 else 0.0
+            leverage = (total_ntl_pos / account_value) if account_value > 0 and total_ntl_pos > 0 else 0.0
+
+            # Long/short yüzdeleri
+            long_pct = (long_value / total_ntl_pos * 100.0) if total_ntl_pos > 0 else 0.0
+            short_pct = (short_value / total_ntl_pos * 100.0) if total_ntl_pos > 0 else 0.0
 
             return {
                 "account_value": account_value,
@@ -253,9 +275,9 @@ class WalletTracker:
                 "winning_positions": winning_positions,
                 "win_rate": win_rate,
                 "roe_percentage": roe,
-                "leverage": total_ntl_pos / account_value if account_value > 0 else 0,
-                "long_percentage": (long_value / total_ntl_pos * 100) if total_ntl_pos > 0 else 0,
-                "short_percentage": (short_value / total_ntl_pos * 100) if total_ntl_pos > 0 else 0
+                "leverage": leverage,
+                "long_percentage": long_pct,
+                "short_percentage": short_pct,
             }
         except (ValueError, TypeError, KeyError, ZeroDivisionError) as e:
             print(f"Error calculating position stats: {e}")
