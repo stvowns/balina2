@@ -340,7 +340,16 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     def _format_summary_header(self, margin_summary: Dict, stats: Dict, asset_positions: list) -> str:
         """Format the summary header section"""
         account_value = self._safe_float(margin_summary.get("accountValue", 0))
+
+        # Calculate total position value from individual positions if totalNotion is zero
         total_notion = self._safe_float(margin_summary.get("totalNotion", 0))
+        if total_notion == 0 and asset_positions:
+            total_notion = sum(
+                self._safe_float(pos.get("positionValue", 0))
+                for pos in asset_positions
+                if self._safe_float(pos.get("szi", 0)) != 0
+            )
+
         unrealized_pnl = self._safe_float(margin_summary.get("unrealizedPnl", 0))
         margin_usage = self._safe_float(margin_summary.get("marginUsage", 0))
 
