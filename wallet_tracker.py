@@ -209,13 +209,43 @@ class WalletTracker:
             data = response.json()
             if data and "marginSummary" in data:
                 return data
-            return None
+            # Return empty structure if API returns no data
+            return {
+                "marginSummary": {
+                    "accountValue": 0,
+                    "totalNtlPos": 0,
+                    "totalMarginUsed": 0,
+                    "unrealizedPnl": 0,
+                    "marginUsage": 0
+                },
+                "assetPositions": []
+            }
         except requests.RequestException as e:
             print(f"Network error getting Hyperliquid positions: {e}")
-            return None
+            # Return empty structure on network errors
+            return {
+                "marginSummary": {
+                    "accountValue": 0,
+                    "totalNtlPos": 0,
+                    "totalMarginUsed": 0,
+                    "unrealizedPnl": 0,
+                    "marginUsage": 0
+                },
+                "assetPositions": []
+            }
         except (ValueError, KeyError) as e:
             print(f"Data parsing error getting Hyperliquid positions: {e}")
-            return None
+            # Return empty structure on parsing errors
+            return {
+                "marginSummary": {
+                    "accountValue": 0,
+                    "totalNtlPos": 0,
+                    "totalMarginUsed": 0,
+                    "unrealizedPnl": 0,
+                    "marginUsage": 0
+                },
+                "assetPositions": []
+            }
     
     def check_balance_change(self) -> Tuple[bool, float, float]:
         """Check if balance has changed significantly"""

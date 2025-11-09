@@ -31,7 +31,7 @@ class CryptoWalletMonitor:
         self.config = load_config()
 
         # Check if async mode is enabled via environment variable
-        use_async = os.getenv("USE_ASYNC_MODE", "true").lower() == "true"
+        use_async = os.getenv("USE_ASYNC_TRACKER", "true").lower() == "true"
         self.multi_tracker = MultiWalletTracker(self.config, use_async=use_async)
         self.check_interval = self.config["check_interval"]
 

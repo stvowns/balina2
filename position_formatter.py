@@ -3,7 +3,7 @@ Position formatting utilities for consistent position display formatting
 """
 
 from typing import Dict, Optional, Tuple
-from constants import (
+from common.constants import (
     POSITION_STATUS_EMOJIS, POSITION_SIDE_EMOJIS,
     HIGHLIGHT_EMOJI, PERCENTAGE_MULTIPLIER
 )
@@ -71,7 +71,7 @@ class PositionFormatter:
     @staticmethod
     def format_funding_info(position: Dict) -> str:
         """Format funding information with emoji"""
-        from constants import FUNDING_EMOJI
+        from common.constants import FUNDING_EMOJI
 
         funding = position.get("cumFunding", {})
         funding_since_open = float(funding.get("sinceOpen") or 0)

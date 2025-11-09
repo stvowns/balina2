@@ -5,7 +5,6 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from typing import Dict, Optional, List
 from utils import format_address
-from constants import COLOR_CODES
 from common.constants import (
     # Formatting constants
     ADDRESS_TRUNCATE_LENGTH,

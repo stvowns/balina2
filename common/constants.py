@@ -41,7 +41,7 @@ DEFAULT_LIMIT = 10
 DEFAULT_RETRIES = 3
 
 # Rate limiting
-DEFAULT_RATE_LIMIT_ETHERSCAN = 5  # requests per second
+DEFAULT_RATE_LIMIT_ETHERSCAN = 2  # requests per second (more conservative)
 DEFAULT_RATE_LIMIT_HYPERLIQUID = 10  # requests per second
 DEFAULT_RATE_LIMIT_PERIOD = 1  # seconds
 
@@ -73,8 +73,8 @@ DEFAULT_SMTP_USE_TLS = True
 # =============================================================================
 
 # Address and transaction formatting
-ADDRESS_TRUNCATE_LENGTH = 6
-TRANSACTION_HASH_TRUNCATE_LENGTH = 10
+ADDRESS_TRUNCATE_LENGTH = 10  # Gerçek sistemde kullanılan değer
+TRANSACTION_HASH_TRUNCATE_LENGTH = 20  # Gerçek sistemde kullanılan değer
 
 # Token formatting
 DEFAULT_TOKEN_DECIMALS = 18
@@ -132,7 +132,7 @@ HIGHLIGHT_EMOJI = "🔥"
 # =============================================================================
 
 # Console formatting
-CONSOLE_LINE_LENGTH = 80
+CONSOLE_LINE_LENGTH = 60  # Gerçek sistemde kullanılan değer
 CONSOLE_SEPARATOR = "=" * CONSOLE_LINE_LENGTH
 
 # Status indicators
@@ -151,6 +151,23 @@ HTTP_FORBIDDEN_CODE = 403
 HTTP_NOT_FOUND_CODE = 404
 HTTP_RATE_LIMIT_CODE = 429
 HTTP_SERVER_ERROR_CODE = 500
+
+# =============================================================================
+# 🎨 CONSOLE COLOR CODES
+# =============================================================================
+
+# Console color codes for terminal output
+COLOR_CODES = {
+    'red': '\033[91m',
+    'green': '\033[92m',
+    'yellow': '\033[93m',
+    'blue': '\033[94m',
+    'magenta': '\033[95m',
+    'cyan': '\033[96m',
+    'white': '\033[97m',
+    'bold': '\033[1m',
+    'end': '\033[0m'
+}
 
 # =============================================================================
 # 🔍 LOGGING LEVELS
@@ -259,7 +276,7 @@ BACKUP_DIR = ".backups"
 
 # Application info
 APP_NAME = "Balina2Droid"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.1"
 APP_DESCRIPTION = "Multi-Wallet Crypto Tracker"
 APP_AUTHOR = "Crypto Wallet Tracker Team"
 
@@ -360,6 +377,7 @@ __all__ = [
     # Display formatting
     "CONSOLE_LINE_LENGTH",
     "CONSOLE_SEPARATOR",
+    "COLOR_CODES",
 
     # Status indicators
     "STATUS_ACTIVE",

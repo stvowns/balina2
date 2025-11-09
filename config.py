@@ -174,6 +174,7 @@ def load_secure_config() -> Dict[str, Any]:
 
         # Other configuration
         config["check_interval"] = int(os.getenv("CHECK_INTERVAL", str(DEFAULT_CHECK_INTERVAL)))
+        config["use_async"] = os.getenv("USE_ASYNC_TRACKER", "true").lower() == "true"
         config["balance_change_threshold"] = float(os.getenv("BALANCE_CHANGE_THRESHOLD", str(DEFAULT_BALANCE_CHANGE_THRESHOLD)))
         config["position_change_threshold"] = float(os.getenv("POSITION_CHANGE_THRESHOLD", str(DEFAULT_POSITION_CHANGE_THRESHOLD)))
 
