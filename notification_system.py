@@ -199,16 +199,37 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
     
     def format_position_change(self, positions: Dict, change_type: str = "change") -> str:
-        """Format position change notification"""
+        """
+        Hyperliquid pozisyon değişimi bildirimini formatlar.
+
+        Güvenli tip dönüşümleri:
+        - marginSummary içindeki tüm sayısal alanlar _safe_float ile normalize edilir.
+        - _changed_coin vurgusu korunur (alev/emoji desteği PositionFormatter içinde).
+        """
         if not positions or "marginSummary" not in positions:
             return "Position data unavailable"
 
-        # Extract summary information
-        margin_summary = positions.get("marginSummary", {})
+        # marginSummary güvenli normalize
+        margin_summary = positions.get("marginSummary", {}) or {}
+        normalized_margin = {
+            "accountValue": self._safe_float(margin_summary.get("accountValue", 0)),
+            "totalNotion": self._safe_float(
+                margin_summary.get("totalNtlPos", margin_summary.get("totalNotion", 0))
+            ),
+            "unrealizedPnl": self._safe_float(margin_summary.get("unrealizedPnl", 0)),
+            "marginUsage": self._safe_float(margin_summary.get("marginUsage", 0)),
+        }
+
+        # Eski anahtarları koru ki başka yerler kırılmasın
+        margin_summary.update(normalized_margin)
+
+        # Özet başlık (POSITION SUMMARY / OPENED / CLOSED / CHANGED)
         summary_info = self._format_margin_summary(margin_summary, change_type, positions)
 
-        # Format individual positions
+        # Değişen coin
         changed_coin = positions.get("_changed_coin", None)
+
+        # Pozisyon detayları (alev/vurgu mantığı PositionFormatter'da)
         positions_section = self._format_positions_section(positions, changed_coin, detailed=False)
 
         return summary_info + positions_section
@@ -228,12 +249,20 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         if changed_coin:
             title += f" - {changed_coin}"
 
+        # Global başlangıç / özet bildirimleri için okunaklı KAR / ZARAR etiketi:
+        if unrealized_pnl > 0:
+            global_pnl_tag = " ⬆️ KAR ⬆️"
+        elif unrealized_pnl < 0:
+            global_pnl_tag = " ⬇️ ZARAR ⬇️"
+        else:
+            global_pnl_tag = " ➡️ NÖTR"
+
         return f"""
 {emoji} {title}
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${account_value:,.2f}
 Total Position Value: ${total_notion:,.2f}
-Unrealized PnL: ${unrealized_pnl:,.2f}
+Unrealized PnL: ${unrealized_pnl:,.2f}{global_pnl_tag}
 Margin Usage: {margin_usage*100:.2f}%
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
@@ -250,17 +279,53 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             return "🔄", "POSITION CHANGED"
 
     def _format_positions_section(self, positions: Dict, changed_coin: str = None, detailed: bool = True) -> str:
-        """Format the positions section"""
+        """
+        Pozisyon listesini formatlar.
+
+        İyileştirmeler:
+        - changed_coin için ekstra vurgu:
+          • Satır başında özel emoji.
+          • Pozisyon satır sonuna "CHANGED" etiketi.
+        - Her pozisyonda unrealized PnL'e göre durum etiketi:
+          • Kâr: "⬆️ KAR ⬆️"
+          • Zarar: "⬇️ ZARAR ⬇️"
+          • Nötr: "➡️ NÖTR"
+        """
         asset_positions = positions.get("assetPositions", [])
         if not asset_positions:
             return ""
 
         summary = "\n📈 POSITIONS:\n"
         for pos_data in asset_positions:
-            if "position" in pos_data and pos_data["position"]:
-                position = pos_data["position"]
-                # Use position_detailed for all cases since position_summary doesn't include changed coin logic
-                summary += PositionFormatter.format_position_detailed(position, changed_coin)
+            if "position" not in pos_data or not pos_data["position"]:
+                continue
+
+            position = pos_data["position"]
+            coin = position.get("coin", "")
+            pnl = self._safe_float(position.get("unrealizedPnl", 0))
+
+            # PnL etiketi
+            if pnl > 0:
+                pnl_tag = " ⬆️ KAR ⬆️"
+            elif pnl < 0:
+                pnl_tag = " ⬇️ ZARAR ⬇️"
+            else:
+                pnl_tag = " ➡️ NÖTR"
+
+            # PositionFormatter'dan temel format
+            base_text = PositionFormatter.format_position_detailed(position, changed_coin)
+
+            # Eğer formatlama boş dönerse atla
+            if not base_text:
+                continue
+
+            # Değişen coin için ekstra vurgu
+            if changed_coin and coin == changed_coin:
+                # Başına belirgin emoji ekle, sonuna CHANGED etiketi koy
+                highlighted = f"🔥 {base_text.strip()} 🔥 [CHANGED]{pnl_tag}\n"
+                summary += highlighted
+            else:
+                summary += f"{base_text.strip()}{pnl_tag}\n"
 
         return summary
     
@@ -319,74 +384,130 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         return summary
     
     def format_hyperliquid_summary(self, positions: Dict, stats: Dict = None) -> str:
-        """Format Hyperliquid position summary with detailed statistics"""
+        """
+        Hyperliquid pozisyon özetini güvenli şekilde formatlar.
+        - Tüm numeric alanlar _safe_float ile normalize edilir.
+        - Böylece '>' not supported between instances of 'str' and 'int' hatası engellenir.
+        - Özet + ACTIVE POSITIONS içinde hem global hem coin bazlı KAR/ZARAR görünür.
+        """
         if not positions or "marginSummary" not in positions:
             return "Position data unavailable"
 
-        margin_summary = positions.get("marginSummary", {})
-        asset_positions = positions.get("assetPositions", [])
+        margin_summary = positions.get("marginSummary", {}) or {}
+        asset_positions = positions.get("assetPositions", []) or []
 
-        # Build summary header
-        header = self._format_summary_header(margin_summary, stats, asset_positions)
+        # marginSummary normalize (hem eski hem yeni anahtar isimleri)
+        normalized_margin = {
+            "accountValue": self._safe_float(margin_summary.get("accountValue", 0)),
+            "totalNtlPos": self._safe_float(
+                margin_summary.get("totalNtlPos", margin_summary.get("totalNotion", 0))
+            ),
+            "unrealizedPnl": self._safe_float(margin_summary.get("unrealizedPnl", 0)),
+            "totalMarginUsed": self._safe_float(margin_summary.get("totalMarginUsed", 0)),
+            "marginUsage": self._safe_float(margin_summary.get("marginUsage", 0)),
+        }
+        margin_summary.update(normalized_margin)
+
+        # İstatistikler normalize
+        normalized_stats = {}
+        if isinstance(stats, dict):
+            for k, v in stats.items():
+                if k == "position_count":
+                    try:
+                        normalized_stats[k] = int(float(v)) if v not in (None, "") else 0
+                    except (TypeError, ValueError):
+                        normalized_stats[k] = 0
+                else:
+                    normalized_stats[k] = self._safe_float(v, 0.0)
+
+        # Build summary header (global KAR/ZARAR etiketi _format_margin_summary içinde)
+        header = self._format_summary_header(margin_summary, normalized_stats or None, asset_positions)
 
         # Add position breakdown if stats available
-        breakdown = self._format_position_breakdown(stats) if stats else ""
+        breakdown = self._format_position_breakdown(normalized_stats) if normalized_stats else ""
 
-        # Add individual positions
-        positions_section = self._format_active_positions(positions)
+        # Add individual positions:
+        # - Position change bildirimi için changed_coin vurgusu zaten _format_positions_section içinde.
+        # - Global özet için burada da aynı fonksiyonu kullanırsak, ACTIVE POSITIONS içinde 🔥 + KAR/ZARAR olur.
+        changed_coin = positions.get("_changed_coin")
+        positions_section = self._format_positions_section(positions, changed_coin, detailed=True)
 
         return header + breakdown + positions_section
 
     def _format_summary_header(self, margin_summary: Dict, stats: Dict, asset_positions: list) -> str:
-        """Format the summary header section"""
+        """
+        Hyperliquid özet başlığı.
+
+        Hedef:
+        - Hiç açık pozisyon yoksa kullanıcıya anlamsız 0 değerleri yığmak yerine sade mesaj göster.
+        - Açık pozisyon varsa detaylı metrikleri göster.
+        - Tüm sayısal alanları _safe_float ile normalize ederek tip hatalarını engelle.
+        """
         account_value = self._safe_float(margin_summary.get("accountValue", 0))
 
-        # API'dan gelen doğru alanları kullan
-        # totalNotion yerine totalNtlPos kullanılıyor
-        total_notion = self._safe_float(margin_summary.get("totalNtlPos", 0))
+        # totalNtlPos / totalNotion öncelikli
+        base_total = self._safe_float(
+            margin_summary.get("totalNtlPos", margin_summary.get("totalNotion", 0))
+        )
 
-        # Eğer totalNtlPos 0 ise individual pozisyonlardan hesapla
-        if total_notion == 0 and asset_positions:
-            total_notion = sum(
-                self._safe_float(pos.get("positionValue", 0))
-                for pos in asset_positions
-                if self._safe_float(pos.get("szi", 0)) != 0
+        # Aktif pozisyonlar
+        asset_positions = asset_positions or []
+        active_positions = [
+            pos for pos in asset_positions
+            if self._safe_float(pos.get("position", {}).get("szi", 0)) != 0
+        ]
+        active_count = len(active_positions)
+
+        # Eğer API 0 döndürmüş ama aktif pozisyon varsa, total position value'yu pozisyonlardan hesapla
+        total_pos_value = base_total
+        if total_pos_value == 0 and active_positions:
+            total_pos_value = sum(
+                self._safe_float(pos.get("position", {}).get("positionValue", 0))
+                for pos in active_positions
             )
 
-        # Unrealized PnL - individual pozisyonlardan topla
-        # API'da toplam unrealizedPnl alanı yok veya farklı isimde
+        # Unrealized PnL:
         unrealized_pnl = self._safe_float(margin_summary.get("unrealizedPnl", 0))
-        if unrealized_pnl == 0 and asset_positions:
+        if unrealized_pnl == 0 and active_positions:
             unrealized_pnl = sum(
                 self._safe_float(pos.get("position", {}).get("unrealizedPnl", 0))
-                for pos in asset_positions
-                if "position" in pos and pos.get("position", {}).get("szi", 0) != 0
+                for pos in active_positions
             )
 
-        # Margin Usage - totalMarginUsed / accountValue oranı
+        # Margin Usage:
         total_margin_used = self._safe_float(margin_summary.get("totalMarginUsed", 0))
         margin_usage = total_margin_used / account_value if account_value > 0 else 0
 
-        if stats:
-            # Detailed format with statistics
-            total_pos_value = self._safe_float(stats.get("total_position_value", total_notion))
-            win_rate = self._safe_float(stats.get("win_rate", 0))
-            leverage = self._safe_float(stats.get("leverage", 0))
-            position_count = stats.get('position_count', len(asset_positions))
-
-            # Ensure position_count is an integer - handle all possible types
-            try:
-                if position_count is None or position_count == "":
-                    position_count = len(asset_positions)
-                elif isinstance(position_count, str):
-                    # Handle string representations
-                    position_count = int(float(position_count)) if position_count.replace('.', '').replace('-', '').isdigit() else len(asset_positions)
-                else:
-                    position_count = int(position_count)
-            except (ValueError, TypeError, AttributeError):
-                position_count = len(asset_positions)
-
+        # Hiç aktif pozisyon yoksa basit ve temiz çıktı
+        if active_count == 0:
             return f"""
+📊 HYPERLIQUID POSITION SUMMARY
+Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
+Account Value: ${account_value:,.2f}
+No open perpetual positions.
+Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            """
+
+        # Aktif pozisyon varsa stats (varsa) üzerinden detayları güvenli şekilde kullan
+        win_rate = 0.0
+        leverage = 0.0
+        position_count = active_count
+
+        if isinstance(stats, dict):
+            total_pos_value = self._safe_float(
+                stats.get("total_position_value", total_pos_value)
+            )
+            win_rate = self._safe_float(stats.get("win_rate", 0.0))
+            leverage = self._safe_float(stats.get("leverage", 0.0))
+
+            raw_pc = stats.get("position_count", position_count)
+            try:
+                if raw_pc not in (None, ""):
+                    position_count = int(float(raw_pc))
+            except (TypeError, ValueError):
+                position_count = position_count
+
+        return f"""
 📊 HYPERLIQUID POSITION SUMMARY
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${account_value:,.2f}
@@ -397,19 +518,7 @@ Open Positions: {position_count}
 Win Rate: {win_rate:.1f}%
 Leverage: {leverage:.2f}x
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-            """
-        else:
-            # Simple format without statistics
-            return f"""
-📊 HYPERLIQUID POSITION SUMMARY
-Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
-Account Value: ${account_value:,.2f}
-Total Position Value: ${total_notion:,.2f}
-Unrealized PnL: ${unrealized_pnl:,.2f}
-Margin Usage: {margin_usage*100:.2f}%
-Open Positions: {len(asset_positions)}
-Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-            """
+        """
 
     def _format_position_breakdown(self, stats: Dict) -> str:
         """Format the position breakdown section"""
@@ -438,17 +547,49 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             return float(default)
 
     def _format_active_positions(self, positions: Dict) -> str:
-        """Format the active positions section"""
+        """
+        Aktif pozisyonlar bölümünü formatlar.
+
+        Global geliştirme:
+        - Her pozisyon için unrealized PnL'e göre KAR/ZARAR etiketi eklenir:
+          • PnL > 0  -> " ⬆️ KAR ⬆️"
+          • PnL < 0  -> " ⬇️ ZARAR ⬇️"
+          • PnL = 0  -> " ➡️ NÖTR"
+        - Böylece başlangıç bildirimleri ve tüm ACTIVE POSITIONS bloklarında,
+          her pozisyon satırında net kar/zarar bilgisi görünür.
+        """
         asset_positions = positions.get("assetPositions", [])
         if not asset_positions:
             return ""
 
         summary = "\n🔍 ACTIVE POSITIONS:\n"
         for pos_data in asset_positions:
-            if "position" in pos_data and pos_data["position"]:
-                position = pos_data["position"]
-                formatted_position = PositionFormatter.format_position_detailed(position)
-                if formatted_position:
-                    summary += formatted_position
+            if "position" not in pos_data or not pos_data["position"]:
+                continue
+
+            position = pos_data["position"]
+            pnl = self._safe_float(position.get("unrealizedPnl", 0))
+
+            # Var olan detay formatı kullan
+            base = PositionFormatter.format_position_detailed(position)
+            if not base:
+                continue
+            base = base.rstrip("\n")
+
+            # Global PnL etiketi
+            if pnl > 0:
+                pnl_tag = " ⬆️ KAR ⬆️"
+            elif pnl < 0:
+                pnl_tag = " ⬇️ ZARAR ⬇️"
+            else:
+                pnl_tag = " ➡️ NÖTR"
+
+            # Son satıra PnL tag ekle
+            lines = base.split("\n")
+            if lines:
+                lines[-1] = f"{lines[-1]}{pnl_tag}"
+            formatted_with_tag = "\n".join(lines)
+
+            summary += formatted_with_tag + "\n"
 
         return summary

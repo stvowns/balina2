@@ -1,46 +1,45 @@
 #!/usr/bin/env python3
 """
-Multi-Wallet Tracker - Manages multiple wallet trackers
+Multi-Wallet Tracker - Orchestrates multiple wallet trackers with single responsibility
 """
 
-import json
 import asyncio
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from wallet_tracker import WalletTracker, WalletTrackerError
-from notification_system import NotificationSystem, NotificationError
-from utils import save_transaction_log, format_address
 from async_wallet_tracker import AsyncMultiWalletTracker, AsyncWalletTrackerError
+from notification_gateway import NotificationGateway
+from data_processor import DataProcessor
+from utils import format_address
 
 class MultiWalletTracker:
-    """Manages multiple wallet trackers and their notifications"""
+    """Orchestrates multiple wallet trackers with clear separation of concerns"""
 
     def __init__(self, config: Dict[str, Any], use_async: bool = True):
         self.config = config
         self.wallets = config.get("wallets", {})
         self.etherscan_api_key = config.get("etherscan_api_key", "")
-        self.notification_settings = config.get("notification_settings", {})
         self.check_interval = config.get("check_interval", 600)
         self.balance_threshold = config.get("balance_change_threshold", 0.1)
 
         # Choose between sync and async implementation
         self.use_async = use_async
 
-        # Initialize trackers and notification systems for each wallet
+        # Initialize components with single responsibilities
         self.trackers = {}
-        self.notification_systems = {}
+        self.async_tracker = None
+        self.notification_gateway = NotificationGateway(config)
+        self.data_processor = DataProcessor()
 
         if self.use_async:
-            self.async_tracker = None  # Will be initialized when needed
             print("🚀 Using Async Multi-Wallet Tracker for improved performance")
         else:
-            self.async_tracker = None
             print("🔄 Using Sync Multi-Wallet Tracker")
 
         self._initialize_wallets()
 
     def _initialize_wallets(self):
-        """Initialize wallet trackers and notification systems"""
+        """Initialize wallet trackers and setup notification gateway"""
         for wallet_id, wallet_config in self.wallets.items():
             if not wallet_config.get("enabled", True):
                 continue
@@ -53,35 +52,13 @@ class MultiWalletTracker:
                 )
                 self.trackers[wallet_id] = tracker
 
-                # Create notification system for this wallet
-                notification_config = self._create_notification_config(wallet_config)
-                notification_system = NotificationSystem(notification_config)
-                self.notification_systems[wallet_id] = notification_system
-
                 print(f"✅ Initialized wallet: {wallet_config['name']} ({format_address(wallet_config['address'])})")
 
             except Exception as e:
                 print(f"❌ Failed to initialize wallet {wallet_id}: {e}")
 
-    def _create_notification_config(self, wallet_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Create notification configuration for a specific wallet"""
-        notification_config = self.notification_settings.copy()
-        notification_config["wallet_address"] = wallet_config["address"]
-        notification_config["wallet_name"] = wallet_config["name"]  # Add wallet name
-
-        # Override Telegram chat ID if specified for this wallet
-        if wallet_config.get("telegram_chat_id"):
-            if "telegram" in notification_config:
-                notification_config["telegram"]["chat_id"] = wallet_config["telegram_chat_id"]
-                notification_config["telegram"]["enabled"] = True
-
-        # Override email recipient if specified for this wallet
-        if wallet_config.get("email_recipient"):
-            if "email" in notification_config:
-                notification_config["email"]["recipient_email"] = wallet_config["email_recipient"]
-                notification_config["email"]["enabled"] = True
-
-        return notification_config
+        # Initialize notification gateway after all wallets are set up
+        self.notification_gateway.create_notification_systems()
 
     def check_all_wallets(self) -> Dict[str, List[Dict]]:
         """Check all enabled wallets for changes (sync or async based on configuration)"""
@@ -96,7 +73,6 @@ class MultiWalletTracker:
 
         for wallet_id, tracker in self.trackers.items():
             wallet_config = self.wallets[wallet_id]
-            notification_system = self.notification_systems[wallet_id]
 
             wallet_results = []
 
@@ -106,12 +82,8 @@ class MultiWalletTracker:
                 # Check balance changes
                 balance_changed, current_balance, change = tracker.check_balance_change()
                 if balance_changed:
-                    message = notification_system.format_balance_change(
-                        tracker.last_known_balance - change,
-                        current_balance,
-                        change
-                    )
-                    success = notification_system.send_notification(message, "BALANCE CHANGE")
+                    old_balance = tracker.last_known_balance - change
+                    success = self.notification_gateway.send_balance_change_notification(wallet_id, old_balance, current_balance, change)
                     if not success:
                         print(f"❌ Failed to send balance change notification for wallet {wallet_id}")
 
@@ -119,15 +91,7 @@ class MultiWalletTracker:
                         "type": "balance_change",
                         "wallet_id": wallet_id,
                         "wallet_name": wallet_config["name"],
-                        "old_balance": tracker.last_known_balance - change,
-                        "new_balance": current_balance,
-                        "change": change
-                    })
-
-                    save_transaction_log({
-                        "wallet_id": wallet_id,
-                        "type": "balance_change",
-                        "old_balance": tracker.last_known_balance - change,
+                        "old_balance": old_balance,
                         "new_balance": current_balance,
                         "change": change
                     })
@@ -135,16 +99,11 @@ class MultiWalletTracker:
                 # Check position changes
                 positions_changed, positions, change_type = tracker.check_position_changes()
                 if positions_changed:
-                    changed_coin = positions.get("_changed_coin", "Unknown")
-                    print(f"\n🔥 POSITION DETECTED: {change_type.upper()} - {changed_coin}")
-                    print(f"💰 Wallet: {wallet_config['name']} ({wallet_id})")
-                    print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-                    message = notification_system.format_position_change(positions, change_type)
-                    success = notification_system.send_notification(message, f"POSITION {change_type.upper()}")
+                    success = self.notification_gateway.send_position_change_notification(wallet_id, positions, change_type)
                     if not success:
                         print(f"❌ Failed to send position change notification for wallet {wallet_id}")
 
+                    changed_coin = positions.get("_changed_coin", "Unknown")
                     wallet_results.append({
                         "type": "position_change",
                         "wallet_id": wallet_id,
@@ -154,18 +113,10 @@ class MultiWalletTracker:
                         "changed_coin": changed_coin
                     })
 
-                    save_transaction_log({
-                        "wallet_id": wallet_id,
-                        "type": "position_change",
-                        "change_type": change_type,
-                        "positions": positions
-                    })
-
                 # Check for deposit/withdrawal transactions
                 has_deposit_withdrawal, deposit_txs = tracker.check_deposit_withdrawal()
                 if has_deposit_withdrawal:
-                    message = notification_system.format_deposit_withdrawal(deposit_txs)
-                    success = notification_system.send_notification(message, "DEPOSIT/WITHDRAWAL")
+                    success = self.notification_gateway.send_deposit_withdrawal_notification(wallet_id, deposit_txs)
                     if not success:
                         print(f"❌ Failed to send deposit/withdrawal notification for wallet {wallet_id}")
 
@@ -173,12 +124,6 @@ class MultiWalletTracker:
                         "type": "deposit_withdrawal",
                         "wallet_id": wallet_id,
                         "wallet_name": wallet_config["name"],
-                        "transactions": deposit_txs
-                    })
-
-                    save_transaction_log({
-                        "wallet_id": wallet_id,
-                        "type": "deposit_withdrawal",
                         "transactions": deposit_txs
                     })
 
@@ -227,59 +172,7 @@ class MultiWalletTracker:
 
         return summary
 
-    def _safe_float(self, value, default=0.0) -> float:
-        """Safely convert value to float (for dict fields that might be str/int/None)."""
-        try:
-            if value is None or value == "":
-                return float(default)
-            return float(value)
-        except (TypeError, ValueError):
-            return float(default)
-
-    def _normalize_margin_summary(self, margin_summary: Dict[str, Any]) -> Dict[str, float]:
-        """Normalize numeric fields in marginSummary to floats to avoid type issues."""
-        normalized = {}
-        # Common keys returned by Hyperliquid
-        keys = [
-            "accountValue",
-            "totalNtlPos",
-            "totalNotional",
-            "totalMarginUsed",
-            "unrealizedPnl",
-            "marginUsage",
-        ]
-        for key in keys:
-            if key in margin_summary:
-                normalized[key] = self._safe_float(margin_summary.get(key), 0.0)
-        # Keep other fields as-is
-        for key, val in margin_summary.items():
-            if key not in normalized:
-                # If looks numeric, normalize as well; otherwise keep raw
-                if isinstance(val, (int, float)):
-                    normalized[key] = float(val)
-                else:
-                    try:
-                        normalized[key] = float(val)
-                    except (TypeError, ValueError):
-                        normalized[key] = val
-        return normalized
-
-    def _normalize_position_stats(self, stats: Dict[str, Any]) -> Dict[str, float]:
-        """Normalize numeric fields in stats to floats to avoid '>' between str and int."""
-        if not isinstance(stats, dict):
-            return {}
-        normalized = {}
-        for k, v in stats.items():
-            if isinstance(v, (int, float)):
-                normalized[k] = float(v)
-            else:
-                try:
-                    normalized[k] = float(v)
-                except (TypeError, ValueError):
-                    # Non-numeric values become 0.0 for safe comparisons
-                    normalized[k] = 0.0
-        return normalized
-
+  
     def send_initial_summary(self):
         """
         Send initial summary notifications for all wallets (sync or async based on configuration).
@@ -302,60 +195,15 @@ class MultiWalletTracker:
             if not self.is_wallet_enabled(wallet_id):
                 continue
 
-            notification_system = self.notification_systems[wallet_id]
             wallet_config = self.wallets[wallet_id]
 
             try:
                 summary = tracker.get_summary()
+                # Normalize summary data
+                normalized_summary = self.data_processor.normalize_summary(summary)
 
-                # Basic safe fields
-                wallet_name = wallet_config.get("name", f"Wallet {wallet_id}")
-                wallet_addr = summary.get("wallet_address") or wallet_config.get("address", "")
-                eth_balance_val = self._safe_float(summary.get("eth_balance"), 0.0)
-                eth_balance_str = f"{eth_balance_val:.4f} ETH" if eth_balance_val > 0 else "N/A"
-
-                message_lines = [
-                    "🚀 WALLET TRACKER STARTED",
-                    f"Wallet: {wallet_name} ({format_address(wallet_addr)})",
-                    f"ETH Balance: {eth_balance_str}",
-                    f"Start Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                    "",
-                    "Monitoring active..."
-                ]
-
-                # Hyperliquid positions (defensive numeric normalization)
-                hl_positions = summary.get("hyperliquid_positions") or {}
-                hl_stats_raw = summary.get("position_stats") or {}
-
-                if isinstance(hl_positions, dict) and hl_positions.get("marginSummary"):
-                    margin_summary = hl_positions.get("marginSummary") or {}
-                    hl_positions["marginSummary"] = self._normalize_margin_summary(margin_summary)
-                    hl_stats = self._normalize_position_stats(hl_stats_raw)
-
-                    # Build formatted HL summary
-                    hl_summary = notification_system.format_hyperliquid_summary(
-                        hl_positions,
-                        hl_stats if hl_stats else None,
-                    )
-                    if hl_summary:
-                        message_lines.append("")
-                        message_lines.append(hl_summary)
-
-                # Add recent tx count (optional, safe)
-                recent_txs = summary.get("recent_transactions")
-                if isinstance(recent_txs, list) and recent_txs:
-                    message_lines.append(f"Recent Transactions: {len(recent_txs)}")
-
-                # Final message (ensure all lines are strings)
-                message = "\n".join(
-                    str(line)
-                    for line in message_lines
-                    if line is not None and str(line).strip() != ""
-                )
-
-                success = notification_system.send_notification(message, "TRACKER STARTED")
-                if not success:
-                    print(f"❌ Failed to send tracker started notification for wallet {wallet_id}")
+                # Send notification through gateway
+                self.notification_gateway.send_initial_summary(wallet_id, normalized_summary, use_async=False)
 
             except Exception as e:
                 # Log and continue with other wallets instead of aborting all
@@ -374,61 +222,12 @@ class MultiWalletTracker:
                 if not self.is_wallet_enabled(wallet_id) or "error" in summary:
                     continue
 
-                if wallet_id not in self.notification_systems:
-                    continue
-
-                notification_system = self.notification_systems[wallet_id]
-                wallet_config = self.wallets[wallet_id]
-
                 try:
-                    # Basic safe fields
-                    wallet_name = wallet_config.get("name", f"Wallet {wallet_id}")
-                    wallet_addr = summary.get("wallet_address") or wallet_config.get("address", "")
-                    eth_balance_val = self._safe_float(summary.get("eth_balance"), 0.0)
-                    eth_balance_str = f"{eth_balance_val:.4f} ETH" if eth_balance_val > 0 else "N/A"
+                    # Normalize summary data
+                    normalized_summary = self.data_processor.normalize_summary(summary)
 
-                    message_lines = [
-                        "🚀 WALLET TRACKER STARTED",
-                        f"Wallet: {wallet_name} ({format_address(wallet_addr)})",
-                        f"ETH Balance: {eth_balance_str}",
-                        f"Start Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                        "",
-                        "🚀 Async monitoring active..."
-                    ]
-
-                    # Hyperliquid positions (defensive numeric normalization)
-                    hl_positions = summary.get("hyperliquid_positions") or {}
-                    hl_stats_raw = summary.get("position_stats") or {}
-
-                    if isinstance(hl_positions, dict) and hl_positions.get("marginSummary"):
-                        margin_summary = hl_positions.get("marginSummary") or {}
-                        hl_positions["marginSummary"] = self._normalize_margin_summary(margin_summary)
-                        hl_stats = self._normalize_position_stats(hl_stats_raw)
-
-                        # Build formatted HL summary
-                        hl_summary = notification_system.format_hyperliquid_summary(
-                            hl_positions,
-                            hl_stats if hl_stats else None,
-                        )
-                        if hl_summary:
-                            message_lines.append("")
-                            message_lines.append(hl_summary)
-
-                    # Add recent tx count (optional, safe)
-                    recent_txs = summary.get("recent_transactions")
-                    if isinstance(recent_txs, list) and recent_txs:
-                        message_lines.append(f"Recent Transactions: {len(recent_txs)}")
-
-                    # Final message (ensure all lines are strings)
-                    message = "\n".join(
-                        str(line)
-                        for line in message_lines
-                        if line is not None and str(line).strip() != ""
-                    )
-
-                    success = notification_system.send_notification(message, "TRACKER STARTED")
-                    if not success:
-                        print(f"❌ Failed to send async tracker started notification for wallet {wallet_id}")
+                    # Send notification through gateway
+                    self.notification_gateway.send_initial_summary(wallet_id, normalized_summary, use_async=True)
 
                 except Exception as e:
                     # Log and continue with other wallets instead of aborting all
@@ -484,48 +283,30 @@ class MultiWalletTracker:
             # Get async results
             async_results = await self.async_tracker.check_all_wallets_async()
 
-            # Process notifications for each wallet
-            for wallet_id, wallet_results in async_results.items():
-                if wallet_id in self.notification_systems:
-                    notification_system = self.notification_systems[wallet_id]
+            # Normalize async results to ensure consistent data types
+            normalized_results = self.data_processor.normalize_async_results(async_results)
 
-                    # Check if wallet_results has valid data
-                    if not isinstance(wallet_results, dict):
-                        print(f"⚠️ Warning: wallet_results is not a dict for {wallet_id}: {type(wallet_results)} - {wallet_results}")
-                        continue
+            # Process notifications for each wallet through gateway
+            for wallet_id, wallet_results in normalized_results.items():
+                # Check for balance change
+                if wallet_results.get("balance_changed", False):
+                    success = self.notification_gateway.send_balance_change_notification(
+                        wallet_id,
+                        wallet_results.get("old_balance", 0),
+                        wallet_results.get("new_balance", 0),
+                        wallet_results.get("balance_change", 0)
+                    )
+                    if not success:
+                        print(f"❌ Failed to send async balance change notification for wallet {wallet_id}")
 
-                    # Check for balance change
-                    if wallet_results.get("balance_changed", False):
-                        message = notification_system.format_balance_change(
-                            wallet_results.get("old_balance", 0),
-                            wallet_results.get("new_balance", 0),
-                            wallet_results.get("balance_change", 0)
-                        )
-                        notification_system.send_notification(message, "BALANCE CHANGE")
-                        save_transaction_log({
-                            "wallet_id": wallet_id,
-                            "type": "balance_change",
-                            "old_balance": wallet_results.get("old_balance", 0),
-                            "new_balance": wallet_results.get("new_balance", 0),
-                            "change": wallet_results.get("balance_change", 0)
-                        })
+                # Check for position change
+                if wallet_results.get("positions_changed", False):
+                    positions = wallet_results.get("new_positions", {})
+                    change_type = wallet_results.get("position_change_type", "position_changed")
 
-                    # Check for position change
-                    if wallet_results.get("positions_changed", False):
-                        positions = wallet_results.get("new_positions", {})
-                        change_type = wallet_results.get("position_change_type", "position_changed")
-
-                        message = notification_system.format_position_change(
-                            positions,
-                            change_type
-                        )
-                        notification_system.send_notification(message, f"POSITION {change_type.upper()}")
-                        save_transaction_log({
-                            "wallet_id": wallet_id,
-                            "type": "position_change",
-                            "change_type": change_type,
-                            "positions": positions
-                        })
+                    success = self.notification_gateway.send_position_change_notification(wallet_id, positions, change_type)
+                    if not success:
+                        print(f"❌ Failed to send async position change notification for wallet {wallet_id}")
 
             return async_results
 
@@ -579,10 +360,12 @@ class MultiWalletTracker:
 
             try:
                 wallet_summary = tracker.get_summary()
-                wallet_summary["wallet_id"] = wallet_id
-                wallet_summary["wallet_name"] = wallet_config["name"]
-                wallet_summary["enabled"] = wallet_config.get("enabled", True)
-                summary[wallet_id] = wallet_summary
+                # Normalize summary data through data processor
+                normalized_summary = self.data_processor.normalize_summary(wallet_summary)
+                normalized_summary["wallet_id"] = wallet_id
+                normalized_summary["wallet_name"] = wallet_config["name"]
+                normalized_summary["enabled"] = wallet_config.get("enabled", True)
+                summary[wallet_id] = normalized_summary
 
             except Exception as e:
                 summary[wallet_id] = {

@@ -1,4 +1,3 @@
-import requests
 import json
 from datetime import datetime
 import time
@@ -6,26 +5,14 @@ from typing import Dict, List, Optional, Tuple
 
 # Import centralized constants
 from constants import (
-    # Ethereum constants
-    WEI_TO_ETH_DIVISOR,
-
-    # API URLs
-    ETHERSCAN_API_URL_V1,
-    ETHERSCAN_API_URL,
-    ETHERSCAN_CHAIN_ID,
-    HYPERLIQUID_API_URL,
-
-    # Default values
-    DEFAULT_LIMIT,
-    DEFAULT_BALANCE_CHANGE_THRESHOLD,
-    DEFAULT_POSITION_CHANGE_THRESHOLD,
-    DEFAULT_CHECK_INTERVAL,
-    DEFAULT_TIMEOUT_SECONDS,
-
     # Business rules
     SIGNIFICANT_BALANCE_CHANGE,
-    POSITION_CHANGE_PERCENTAGE
+    POSITION_CHANGE_PERCENTAGE,
+    DEFAULT_CHECK_INTERVAL
 )
+
+# Import API service for external calls
+from api_service import APIService, APIError
 
 class WalletTrackerError(Exception):
     """Wallet tracker related errors"""
@@ -39,131 +26,22 @@ class WalletTracker:
     def __init__(self, wallet_address: str, etherscan_api_key: str):
         self.wallet_address = wallet_address
         self.etherscan_api_key = etherscan_api_key
-        self.base_url = ETHERSCAN_API_URL
-        self.hyperliquid_url = HYPERLIQUID_API_URL
         self.last_known_balance = None
         self.last_known_positions = None
+        # Initialize API service
+        self.api_service = APIService(etherscan_api_key)
         
     def get_eth_balance(self) -> Optional[float]:
-        """Get current ETH balance with V2 fallback to V1"""
-        # Try V2 API first
-        try:
-            params = {
-                "chainid": ETHERSCAN_CHAIN_ID,
-                "module": "account",
-                "action": "balance",
-                "address": self.wallet_address,
-                "tag": "latest",
-                "apikey": self.etherscan_api_key
-            }
-            response = requests.get(ETHERSCAN_API_URL, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
-            response.raise_for_status()
-            data = response.json()
-            if data["status"] == "1":
-                return float(data["result"]) / WEI_TO_ETH_DIVISOR
-            # V2 failed, try V1 as fallback
-            print("V2 API failed, trying V1 fallback...")
-        except Exception as e:
-            print(f"V2 API failed ({e}), trying V1 fallback...")
-
-        # Fallback to V1 API
-        try:
-            params = {
-                "module": "account",
-                "action": "balance",
-                "address": self.wallet_address,
-                "tag": "latest",
-                "apikey": self.etherscan_api_key
-            }
-            response = requests.get(ETHERSCAN_API_URL_V1, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
-            response.raise_for_status()
-            data = response.json()
-            if data["status"] == "1":
-                return float(data["result"]) / WEI_TO_ETH_DIVISOR
-            else:
-                error_msg = data.get('message', 'Unknown error')
-                if "deprecated" in error_msg.lower():
-                    # Try to extract balance from deprecation warning
-                    print("⚠️ Etherscan V1 deprecated but attempting to extract data...")
-                    # V1 deprecated endpoints might still return data in result field
-                    try:
-                        # Try to make a simple request to get at least some data
-                        balance = 0.0  # Default fallback
-                        print("🔄 Unable to get balance from deprecated API. Using default.")
-                        return balance
-                    except:
-                        return None
-                else:
-                    print(f"Etherscan API error: {error_msg}")
-                    return None
-        except requests.RequestException as e:
-            print(f"Network error getting ETH balance: {e}")
-            return None
-        except (ValueError, KeyError) as e:
-            print(f"Data parsing error getting ETH balance: {e}")
-            return None
+        """Get current ETH balance using API service"""
+        return self.api_service.get_eth_balance(self.wallet_address)
     
-    def get_token_transfers(self, limit: int = DEFAULT_LIMIT) -> List[Dict]:
-        """Get recent token transfers using Etherscan API V2"""
-        try:
-            params = {
-                "chainid": ETHERSCAN_CHAIN_ID,
-                "module": "account",
-                "action": "tokentx",
-                "address": self.wallet_address,
-                "sort": "desc",
-                "apikey": self.etherscan_api_key
-            }
-            response = requests.get(self.base_url, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
-            response.raise_for_status()
-            data = response.json()
-            if data["status"] == "1":
-                return data["result"][:limit]
-            else:
-                message = data.get('message', 'Unknown error')
-                if "No transactions found" in message:
-                    # This is normal, not an error - just no transactions
-                    return []
-                else:
-                    print(f"Etherscan API error (token transfers): {message}")
-                    return []
-        except requests.RequestException as e:
-            print(f"Network error getting token transfers: {e}")
-            return []
-        except (ValueError, KeyError) as e:
-            print(f"Data parsing error getting token transfers: {e}")
-            return []
+    def get_token_transfers(self, limit: int = 100) -> List[Dict]:
+        """Get recent token transfers using API service"""
+        return self.api_service.get_token_transfers(self.wallet_address, limit)
     
-    def get_normal_transactions(self, limit: int = DEFAULT_LIMIT) -> List[Dict]:
-        """Get recent normal transactions using Etherscan API V2"""
-        try:
-            params = {
-                "chainid": ETHERSCAN_CHAIN_ID,
-                "module": "account",
-                "action": "txlist",
-                "address": self.wallet_address,
-                "sort": "desc",
-                "apikey": self.etherscan_api_key
-            }
-            response = requests.get(self.base_url, params=params, timeout=DEFAULT_TIMEOUT_SECONDS)
-            response.raise_for_status()
-            data = response.json()
-            if data["status"] == "1":
-                return data["result"][:limit]
-            else:
-                message = data.get('message', 'Unknown error')
-                if "No transactions found" in message:
-                    # This is normal, not an error - just no transactions
-                    return []
-                else:
-                    print(f"Etherscan API error (transactions): {message}")
-                    return []
-        except requests.RequestException as e:
-            print(f"Network error getting transactions: {e}")
-            return []
-        except (ValueError, KeyError) as e:
-            print(f"Data parsing error getting transactions: {e}")
-            return []
+    def get_normal_transactions(self, limit: int = 100) -> List[Dict]:
+        """Get recent normal transactions using API service"""
+        return self.api_service.get_normal_transactions(self.wallet_address, limit)
     
     def check_deposit_withdrawal(self) -> Tuple[bool, List[Dict]]:
         """Check for new deposit or withdrawal transactions (ETH and tokens)"""
@@ -208,54 +86,8 @@ class WalletTracker:
             return False, []
     
     def get_hyperliquid_positions(self) -> Optional[Dict]:
-        """Get Hyperliquid perpetual positions"""
-        try:
-            payload = {
-                "type": "clearinghouseState",
-                "user": self.wallet_address
-            }
-            response = requests.post(self.hyperliquid_url, json=payload, timeout=DEFAULT_TIMEOUT_SECONDS)
-            response.raise_for_status()
-            data = response.json()
-            if data and "marginSummary" in data:
-                return data
-            # Return empty structure if API returns no data
-            return {
-                "marginSummary": {
-                    "accountValue": 0,
-                    "totalNtlPos": 0,
-                    "totalMarginUsed": 0,
-                    "unrealizedPnl": 0,
-                    "marginUsage": 0
-                },
-                "assetPositions": []
-            }
-        except requests.RequestException as e:
-            print(f"Network error getting Hyperliquid positions: {e}")
-            # Return empty structure on network errors
-            return {
-                "marginSummary": {
-                    "accountValue": 0,
-                    "totalNtlPos": 0,
-                    "totalMarginUsed": 0,
-                    "unrealizedPnl": 0,
-                    "marginUsage": 0
-                },
-                "assetPositions": []
-            }
-        except (ValueError, KeyError) as e:
-            print(f"Data parsing error getting Hyperliquid positions: {e}")
-            # Return empty structure on parsing errors
-            return {
-                "marginSummary": {
-                    "accountValue": 0,
-                    "totalNtlPos": 0,
-                    "totalMarginUsed": 0,
-                    "unrealizedPnl": 0,
-                    "marginUsage": 0
-                },
-                "assetPositions": []
-            }
+        """Get Hyperliquid perpetual positions using API service"""
+        return self.api_service.get_hyperliquid_positions(self.wallet_address)
     
     def check_balance_change(self) -> Tuple[bool, float, float]:
         """Check if balance has changed significantly"""
