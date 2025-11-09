@@ -8,7 +8,13 @@ from constants import (
     # Business rules
     SIGNIFICANT_BALANCE_CHANGE,
     POSITION_CHANGE_PERCENTAGE,
-    DEFAULT_CHECK_INTERVAL
+    DEFAULT_CHECK_INTERVAL,
+
+    # API URLs
+    HYPERLIQUID_API_URL,
+
+    # Default values
+    DEFAULT_TIMEOUT_SECONDS
 )
 
 # Import API service for external calls
@@ -158,11 +164,13 @@ class WalletTracker:
                     changed_coin = coin
                     break
                 # Check for significant size change (more than 5% change)
-                elif abs(size - previous_pos_dict[coin]) / abs(previous_pos_dict[coin]) > POSITION_CHANGE_PERCENTAGE:
-                    changes_detected = True
-                    change_type = "position_changed"
-                    changed_coin = coin
-                    break
+                elif previous_pos_dict[coin] != 0:
+                    change_pct = abs(size - previous_pos_dict[coin]) / abs(previous_pos_dict[coin])
+                    if change_pct > POSITION_CHANGE_PERCENTAGE:
+                        changes_detected = True
+                        change_type = "position_changed"
+                        changed_coin = coin
+                        break
 
         # Check for positions closed
         if not changes_detected:
@@ -216,6 +224,9 @@ class WalletTracker:
             # HyperDash / backend response yapısı üzerinden okuma
             stats = positions.get("stats") or positions.get("hyperdashStats") or {}
 
+            # Asset positions'ı al
+            asset_positions = positions.get("assetPositions", [])
+
             def _f(v, default=0.0):
                 try:
                     if v is None or v == "":
@@ -241,12 +252,57 @@ class WalletTracker:
             long_pct = _f(stats.get("long_percentage", stats.get("longPct", 0.0)))
             short_pct = _f(stats.get("short_percentage", stats.get("shortPct", 0.0)))
 
+            # Eğer API'dan stats gelmediyse, pozisyonlardan hesapla
+            if position_count == 0 and asset_positions:
+                # Pozisyonlardan stats hesapla
+                positions = []
+                total_pnl = 0.0
+                total_position_val = 0.0
+                total_margin = 0.0
+                win_count = 0
+                leverage_sum = 0.0
+                long_val = 0.0
+                short_val = 0.0
+
+                for pos_data in asset_positions:
+                    if "position" in pos_data and pos_data["position"]:
+                        position = pos_data["position"]
+                        size = float(position.get("szi", 0))
+
+                        if size != 0:  # Sadece aktif pozisyonlar
+                            pnl = float(position.get("unrealizedPnl", 0))
+                            pos_val = float(position.get("positionValue", 0))
+                            margin = float(position.get("marginUsed", 0))
+                            lev = float(position.get("leverage", {}).get("value", 0))
+
+                            positions.append(position)
+                            total_pnl += pnl
+                            total_position_val += pos_val
+                            total_margin += margin
+                            leverage_sum += lev if lev > 0 else 1
+
+                            if size > 0:
+                                long_val += pos_val
+                            else:
+                                short_val += pos_val
+
+                            # Win rate: pozitif PnL olan pozisyonlar
+                            if pnl > 0:
+                                win_count += 1
+
+                position_count = len(positions)
+                winning_positions = win_count
+                win_rate = (win_count / position_count * 100) if position_count > 0 else 0.0
+                leverage = leverage_sum / position_count if position_count > 0 else 0.0
+                long_pct = (long_val / total_position_val * 100) if total_position_val > 0 else 0.0
+                short_pct = (short_val / total_position_val * 100) if total_position_val > 0 else 0.0
+
             return {
                 "account_value": account_value,
-                "total_position_value": total_position_value,
-                "long_value": long_value,
-                "short_value": short_value,
-                "total_unrealized_pnl": total_unrealized_pnl,
+                "total_position_value": total_position_value if total_position_value > 0 else total_position_val,
+                "long_value": long_value if long_value > 0 else long_val,
+                "short_value": short_value if short_value > 0 else short_val,
+                "total_unrealized_pnl": total_unrealized_pnl if total_unrealized_pnl != 0 else total_pnl,
                 "position_count": position_count,
                 "winning_positions": winning_positions,
                 "win_rate": win_rate,

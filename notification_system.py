@@ -237,9 +237,21 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     def _format_margin_summary(self, margin_summary: Dict, change_type: str, positions: Dict = None) -> str:
         """Format the margin summary section"""
         account_value = self._safe_float(margin_summary.get("accountValue", 0))
-        total_notion = self._safe_float(margin_summary.get("totalNotion", 0))
+        # totalNtlPos kullan (API'dan gelen doğru alan)
+        total_notion = self._safe_float(margin_summary.get("totalNtlPos", margin_summary.get("totalNotion", 0)))
         unrealized_pnl = self._safe_float(margin_summary.get("unrealizedPnl", 0))
-        margin_usage = self._safe_float(margin_summary.get("marginUsage", 0))
+
+        # Eğer API'dan unrealizedPnl gelmediyse ama pozisyon varsa, pozisyonlardan hesapla
+        if unrealized_pnl == 0 and positions and "assetPositions" in positions:
+            unrealized_pnl = sum(
+                self._safe_float(pos.get("position", {}).get("unrealizedPnl", 0))
+                for pos in positions["assetPositions"]
+                if "position" in pos and self._safe_float(pos["position"].get("szi", 0)) != 0
+            )
+
+        # Margin usage'ı hesapla: totalMarginUsed / accountValue
+        total_margin_used = self._safe_float(margin_summary.get("totalMarginUsed", 0))
+        margin_usage = total_margin_used / account_value if account_value > 0 else 0
 
         # Choose appropriate emoji and title based on change type
         emoji, title = self._get_change_type_info(change_type)
@@ -257,6 +269,14 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         else:
             global_pnl_tag = " ➡️ NÖTR"
 
+        # Open pozisyon sayısını hesapla
+        open_positions = 0
+        if positions and "assetPositions" in positions:
+            open_positions = len([
+                pos for pos in positions["assetPositions"]
+                if "position" in pos and self._safe_float(pos["position"].get("szi", 0)) != 0
+            ])
+
         return f"""
 {emoji} {title}
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
@@ -264,6 +284,7 @@ Account Value: ${account_value:,.2f}
 Total Position Value: ${total_notion:,.2f}
 Unrealized PnL: ${unrealized_pnl:,.2f}{global_pnl_tag}
 Margin Usage: {margin_usage*100:.2f}%
+Open Positions: {open_positions}
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
 
@@ -450,8 +471,10 @@ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             margin_summary.get("totalNtlPos", margin_summary.get("totalNotion", 0))
         )
 
+  
         # Aktif pozisyonlar
         asset_positions = asset_positions or []
+
         active_positions = [
             pos for pos in asset_positions
             if self._safe_float(pos.get("position", {}).get("szi", 0)) != 0
@@ -488,35 +511,39 @@ No open perpetual positions.
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             """
 
-        # Aktif pozisyon varsa stats (varsa) üzerinden detayları güvenli şekilde kullan
-        win_rate = 0.0
-        leverage = 0.0
+        # Aktif pozisyon sayısını kullan
         position_count = active_count
 
+        # Win Rate ve Leverage hesapla (varsa)
+        win_rate = 0.0
+        leverage = 0.0
+
         if isinstance(stats, dict):
-            total_pos_value = self._safe_float(
-                stats.get("total_position_value", total_pos_value)
-            )
             win_rate = self._safe_float(stats.get("win_rate", 0.0))
             leverage = self._safe_float(stats.get("leverage", 0.0))
 
-            raw_pc = stats.get("position_count", position_count)
-            try:
-                if raw_pc not in (None, ""):
-                    position_count = int(float(raw_pc))
-            except (TypeError, ValueError):
-                position_count = position_count
+        # Open pozisyonları ve değerleri doğrudan hesapla
+        # Win rate mantığı: 1 pozisyon varsa 100% veya 0% göster, yoksa N/A
+        if position_count == 1:
+            # Tek pozisyon durumunda 100% (kar) veya 0% (zarar) göster
+            safe_win_rate = f"{win_rate:.1f}%"
+        else:
+            safe_win_rate = f"{win_rate:.1f}%" if win_rate > 0 else "N/A"
+
+        safe_leverage = f"{leverage:.2f}x" if leverage > 0 else "N/A"
+        safe_open_positions = position_count if position_count > 0 else 0
+        safe_total_pos_value = f"${total_pos_value:,.2f}" if total_pos_value > 0 else "$0.00"
 
         return f"""
 📊 HYPERLIQUID POSITION SUMMARY
 Wallet: {self.wallet_name} ({format_address(self.wallet_address)})
 Account Value: ${account_value:,.2f}
-Total Position Value: ${total_pos_value:,.2f}
+Total Position Value: {safe_total_pos_value}
 Unrealized PnL: ${unrealized_pnl:,.2f}
 Margin Usage: {margin_usage*100:.2f}%
-Open Positions: {position_count}
-Win Rate: {win_rate:.1f}%
-Leverage: {leverage:.2f}x
+Open Positions: {safe_open_positions}
+Win Rate: {safe_win_rate}
+Leverage: {safe_leverage}
 Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
 
