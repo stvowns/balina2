@@ -203,15 +203,18 @@ class WalletTracker:
     
     def calculate_position_stats(self, positions: Dict) -> Dict:
         """
-        Hyperliquid pozisyon istatistiklerini hesaplar.
+        Hyperliquid / HyperDash istatistiklerini tek noktadan okur.
 
-        Amaç:
-        - Win rate ve leverage gibi alanların 0 dönmemesi için
-          gerçek aktif pozisyonları baz alarak güvenli hesap yapmak.
+        NOT:
+        - Win rate, leverage vb. metrikler bizim lokal hesapladığımız değerler
+          değil; HyperDash / backend tarafında zaten hesaplanmış geliyor.
+        - Burada amaç:
+          • Gelen JSON içindeki hazır alanları güvenli şekilde çekmek,
+          • Eksikse 0'a düşmek ama asla yanlış formülle "uydurmamak".
         """
         try:
-            margin_summary = positions.get("marginSummary", {}) or {}
-            asset_positions = positions.get("assetPositions", []) or []
+            # HyperDash / backend response yapısı üzerinden okuma
+            stats = positions.get("stats") or positions.get("hyperdashStats") or {}
 
             def _f(v, default=0.0):
                 try:
@@ -221,64 +224,37 @@ class WalletTracker:
                 except (TypeError, ValueError):
                     return float(default)
 
-            account_value = _f(margin_summary.get("accountValue"), 0.0)
-            total_ntl_pos = _f(margin_summary.get("totalNtlPos", margin_summary.get("totalNotion", 0.0)), 0.0)
+            account_value = _f(stats.get("account_value", stats.get("accountValue", 0.0)))
+            total_position_value = _f(stats.get("total_position_value", stats.get("totalPositionValue", 0.0)))
+            long_value = _f(stats.get("long_value", stats.get("longValue", 0.0)))
+            short_value = _f(stats.get("short_value", stats.get("shortValue", 0.0)))
+            total_unrealized_pnl = _f(stats.get("total_unrealized_pnl", stats.get("totalUnrealizedPnl", 0.0)))
 
-            total_unrealized_pnl = 0.0
-            long_value = 0.0
-            short_value = 0.0
-            position_count = 0
-            winning_positions = 0
+            # Hazır gelen metrikler (HyperDash kaynaklı)
+            win_rate = _f(stats.get("win_rate", 0.0))
+            leverage = _f(stats.get("leverage", 0.0))
+            roe_percentage = _f(stats.get("roe_percentage", stats.get("roe", 0.0)))
 
-            for pos_data in asset_positions:
-                position = pos_data.get("position") or {}
-                size = _f(position.get("szi"), 0.0)
-                if size == 0:
-                    continue  # sadece aktif pozisyonlar
+            position_count = int(_f(stats.get("position_count", stats.get("open_positions", 0))))
+            winning_positions = int(_f(stats.get("winning_positions", stats.get("profitable_positions", 0))))
 
-                pnl = _f(position.get("unrealizedPnl"), 0.0)
-                position_value = _f(position.get("positionValue"), 0.0)
-
-                position_count += 1
-                total_unrealized_pnl += pnl
-
-                if size > 0:
-                    long_value += position_value
-                else:
-                    short_value += abs(position_value)
-
-                if pnl > 0:
-                    winning_positions += 1
-
-            # Eğer API'den total_ntl_pos 0 geldiyse ama hesaplanmış aktif pozisyon varsa, düzelt
-            if total_ntl_pos == 0 and (long_value > 0 or short_value > 0):
-                total_ntl_pos = long_value + short_value
-
-            # Win rate
-            win_rate = (winning_positions / position_count * 100.0) if position_count > 0 else 0.0
-
-            # ROE ve leverage
-            roe = (total_unrealized_pnl / account_value * 100.0) if account_value > 0 else 0.0
-            leverage = (total_ntl_pos / account_value) if account_value > 0 and total_ntl_pos > 0 else 0.0
-
-            # Long/short yüzdeleri
-            long_pct = (long_value / total_ntl_pos * 100.0) if total_ntl_pos > 0 else 0.0
-            short_pct = (short_value / total_ntl_pos * 100.0) if total_ntl_pos > 0 else 0.0
+            long_pct = _f(stats.get("long_percentage", stats.get("longPct", 0.0)))
+            short_pct = _f(stats.get("short_percentage", stats.get("shortPct", 0.0)))
 
             return {
                 "account_value": account_value,
-                "total_position_value": total_ntl_pos,
+                "total_position_value": total_position_value,
                 "long_value": long_value,
                 "short_value": short_value,
                 "total_unrealized_pnl": total_unrealized_pnl,
                 "position_count": position_count,
                 "winning_positions": winning_positions,
                 "win_rate": win_rate,
-                "roe_percentage": roe,
+                "roe_percentage": roe_percentage,
                 "leverage": leverage,
                 "long_percentage": long_pct,
                 "short_percentage": short_pct,
             }
         except (ValueError, TypeError, KeyError, ZeroDivisionError) as e:
-            print(f"Error calculating position stats: {e}")
+            print(f"Error reading external position stats: {e}")
             return {}
