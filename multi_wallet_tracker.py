@@ -489,43 +489,43 @@ class MultiWalletTracker:
                 if wallet_id in self.notification_systems:
                     notification_system = self.notification_systems[wallet_id]
 
-                    for result in wallet_results:
-                        if result["type"] == "balance_change":
-                            message = notification_system.format_balance_change(
-                                result["old_balance"],
-                                result["new_balance"],
-                                result["change"]
-                            )
-                            notification_system.send_notification(message, "BALANCE CHANGE")
-                            save_transaction_log({
-                                "wallet_id": wallet_id,
-                                "type": "balance_change",
-                                "old_balance": result["old_balance"],
-                                "new_balance": result["new_balance"],
-                                "change": result["change"]
-                            })
+                    # Check if wallet_results has valid data
+                    if not isinstance(wallet_results, dict):
+                        print(f"⚠️ Warning: wallet_results is not a dict for {wallet_id}: {type(wallet_results)} - {wallet_results}")
+                        continue
 
-                        elif result["type"] == "position_change":
-                            message = notification_system.format_position_change(
-                                result["positions"],
-                                result["change_type"]
-                            )
-                            notification_system.send_notification(message, f"POSITION {result['change_type'].upper()}")
-                            save_transaction_log({
-                                "wallet_id": wallet_id,
-                                "type": "position_change",
-                                "change_type": result["change_type"],
-                                "positions": result["positions"]
-                            })
+                    # Check for balance change
+                    if wallet_results.get("balance_changed", False):
+                        message = notification_system.format_balance_change(
+                            wallet_results.get("old_balance", 0),
+                            wallet_results.get("new_balance", 0),
+                            wallet_results.get("balance_change", 0)
+                        )
+                        notification_system.send_notification(message, "BALANCE CHANGE")
+                        save_transaction_log({
+                            "wallet_id": wallet_id,
+                            "type": "balance_change",
+                            "old_balance": wallet_results.get("old_balance", 0),
+                            "new_balance": wallet_results.get("new_balance", 0),
+                            "change": wallet_results.get("balance_change", 0)
+                        })
 
-                        elif result["type"] == "deposit_withdrawal":
-                            message = notification_system.format_deposit_withdrawal(result["transactions"])
-                            notification_system.send_notification(message, "DEPOSIT/WITHDRAWAL")
-                            save_transaction_log({
-                                "wallet_id": wallet_id,
-                                "type": "deposit_withdrawal",
-                                "transactions": result["transactions"]
-                            })
+                    # Check for position change
+                    if wallet_results.get("positions_changed", False):
+                        positions = wallet_results.get("new_positions", {})
+                        change_type = wallet_results.get("position_change_type", "position_changed")
+
+                        message = notification_system.format_position_change(
+                            positions,
+                            change_type
+                        )
+                        notification_system.send_notification(message, f"POSITION {change_type.upper()}")
+                        save_transaction_log({
+                            "wallet_id": wallet_id,
+                            "type": "position_change",
+                            "change_type": change_type,
+                            "positions": positions
+                        })
 
             return async_results
 
@@ -535,6 +535,8 @@ class MultiWalletTracker:
             return self._check_all_wallets_sync()
         except Exception as e:
             print(f"❌ Unexpected error in async checks: {e}")
+            import traceback
+            print(f"🔍 Full traceback: {traceback.format_exc()}")
             return {}
 
     async def get_all_wallets_summary_async(self) -> Dict[str, Dict]:

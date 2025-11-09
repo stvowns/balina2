@@ -253,6 +253,7 @@ class AsyncWalletTracker:
             return False, 0, 0
 
         if self.last_known_balance is None:
+            self.last_balance = current_balance
             self.last_known_balance = current_balance
             return False, current_balance, 0
 
@@ -262,6 +263,7 @@ class AsyncWalletTracker:
         else:
             significant_change = False
 
+        self.last_balance = current_balance
         self.last_known_balance = current_balance
         return significant_change, current_balance, change
 
@@ -443,19 +445,36 @@ class AsyncMultiWalletTracker:
     async def _check_single_wallet_async(self, wallet_id: str, tracker: AsyncWalletTracker) -> Dict:
         """Check a single wallet asynchronously"""
         async with tracker:
-            balance_changed, new_balance, balance_change = await tracker.check_balance_change()
-            positions_changed, new_positions, change_type = await tracker.check_position_changes()
+            try:
+                balance_changed, new_balance, balance_change = await tracker.check_balance_change()
+                positions_changed, new_positions, change_type = await tracker.check_position_changes()
 
-            return {
-                "wallet_id": wallet_id,
-                "balance_changed": balance_changed,
-                "new_balance": new_balance,
-                "balance_change": balance_change,
-                "positions_changed": positions_changed,
-                "new_positions": new_positions,
-                "position_change_type": change_type,
-                "timestamp": datetime.now().isoformat()
-            }
+                # Validate new_positions is a dict
+                if new_positions is not None and not isinstance(new_positions, dict):
+                    print(f"⚠️ Warning: new_positions is not a dict: {type(new_positions)} - {new_positions}")
+                    new_positions = {}
+
+                return {
+                    "wallet_id": wallet_id,
+                    "balance_changed": balance_changed,
+                    "new_balance": new_balance,
+                    "balance_change": balance_change,
+                    "old_balance": self.last_balance if hasattr(self, 'last_balance') else 0,
+                    "positions_changed": positions_changed,
+                    "new_positions": new_positions,
+                    "position_change_type": change_type,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                print(f"❌ Error checking wallet {wallet_id}: {e}")
+                import traceback
+                print(f"🔍 Wallet {wallet_id} traceback: {traceback.format_exc()}")
+                return {
+                    "wallet_id": wallet_id,
+                    "error": str(e),
+                    "success": False,
+                    "timestamp": datetime.now().isoformat()
+                }
 
     async def get_all_summaries_async(self) -> Dict[str, Dict]:
         """Get summaries for all wallets concurrently"""
