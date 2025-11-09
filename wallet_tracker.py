@@ -120,8 +120,13 @@ class WalletTracker:
             if data["status"] == "1":
                 return data["result"][:limit]
             else:
-                print(f"Etherscan API error (token transfers): {data.get('message', 'Unknown error')}")
-                return []
+                message = data.get('message', 'Unknown error')
+                if "No transactions found" in message:
+                    # This is normal, not an error - just no transactions
+                    return []
+                else:
+                    print(f"Etherscan API error (token transfers): {message}")
+                    return []
         except requests.RequestException as e:
             print(f"Network error getting token transfers: {e}")
             return []
@@ -146,8 +151,13 @@ class WalletTracker:
             if data["status"] == "1":
                 return data["result"][:limit]
             else:
-                print(f"Etherscan API error (transactions): {data.get('message', 'Unknown error')}")
-                return []
+                message = data.get('message', 'Unknown error')
+                if "No transactions found" in message:
+                    # This is normal, not an error - just no transactions
+                    return []
+                else:
+                    print(f"Etherscan API error (transactions): {message}")
+                    return []
         except requests.RequestException as e:
             print(f"Network error getting transactions: {e}")
             return []

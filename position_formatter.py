@@ -5,7 +5,7 @@ Position formatting utilities for consistent position display formatting
 from typing import Dict, Optional, Tuple
 from common.constants import (
     POSITION_STATUS_EMOJIS, POSITION_SIDE_EMOJIS,
-    HIGHLIGHT_EMOJI, PERCENTAGE_MULTIPLIER
+    PNL_EMOJIS, HIGHLIGHT_EMOJI, PERCENTAGE_MULTIPLIER
 )
 
 
@@ -28,11 +28,11 @@ class PositionFormatter:
             size_float = 0.0
 
         if pnl_float > 0:
-            status = POSITION_STATUS_EMOJIS['profit']
+            status = PNL_EMOJIS['profit']
         elif pnl_float < 0:
-            status = POSITION_STATUS_EMOJIS['loss']
+            status = PNL_EMOJIS['loss']
         else:
-            status = POSITION_STATUS_EMOJIS['neutral']
+            status = PNL_EMOJIS['neutral']
 
         side_emoji = POSITION_SIDE_EMOJIS['long'] if size_float > 0 else POSITION_SIDE_EMOJIS['short']
 

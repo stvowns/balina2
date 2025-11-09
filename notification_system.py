@@ -24,6 +24,7 @@ from common.constants import (
 
     # Display formatting
     CONSOLE_LINE_LENGTH,
+    COLOR_CODES,
 
     # HTTP status codes
     HTTP_SUCCESS_CODE,
