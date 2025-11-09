@@ -125,7 +125,7 @@ DIRECTION_EMOJIS = {
 FUNDING_EMOJI = "💰"
 
 # Highlight emoji
-HIGHLIGHT_EMOJI = "🔥"
+HIGHLIGHT_EMOJI = "🆕"
 
 # =============================================================================
 # 📊 DISPLAY FORMATTING
