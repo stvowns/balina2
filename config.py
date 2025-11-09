@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from typing import Dict, Any
 
 # Import centralized constants
-from common.constants import (
+from constants import (
     # Time constants
     SECONDS_PER_MINUTE,
     MINUTES_PER_HOUR,

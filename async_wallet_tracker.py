@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Tuple
 
 # Import centralized constants
-from common.constants import (
+from constants import (
     # Ethereum constants
     WEI_TO_ETH_DIVISOR,
 

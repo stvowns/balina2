@@ -5,7 +5,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 # Import centralized constants
-from common.constants import (
+from constants import (
     # Ethereum constants
     WEI_TO_ETH_DIVISOR,
 
